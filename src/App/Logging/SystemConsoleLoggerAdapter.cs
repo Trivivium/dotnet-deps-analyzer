@@ -1,30 +1,30 @@
 using System;
-using System.CommandLine;
 using System.CommandLine.IO;
+using System.CommandLine.Rendering;
 
 using App.Inspection;
 
-namespace App
+namespace App.Logging
 {
     /// <summary>
     /// Logs informational and error message from the commands to the console instance
     /// of the command line abstractions.
     /// </summary>
-    public class CommandLineConsoleLogger : ILogger
+    internal class SystemConsoleLoggerAdapter : ILogger
     {
-        private readonly IConsole _console;
+        private readonly ITerminal _terminal;
         private readonly bool _verbose;
 
-        public CommandLineConsoleLogger(IConsole console, bool verbose)
+        public SystemConsoleLoggerAdapter(ITerminal terminal, bool verbose)
         {
-            _console = console;
+            _terminal = terminal;
             _verbose = verbose;
         }
 
         /// <inheritdoc cref="ILogger.LogInformation(string)"/>
         public void LogInformation(string message)
         {
-            _console.Out.WriteLine(message);
+            _terminal.Out.WriteLine($"[INFO] {message}");
         }
         
         /// <inheritdoc cref="ILogger.LogVerbose(string)"/>
@@ -39,20 +39,20 @@ namespace App
         /// <inheritdoc cref="ILogger.LogError(string)"/>
         public void LogError(string message)
         {
-            _console.Error.WriteLine($"[ERR] {message}");
+            _terminal.Error.WriteLine($"[ERR] {message}");
         }
 
         /// <inheritdoc cref="ILogger.LogError(Exception, string)"/>
         public void LogError(Exception exception, string message)
         {
-            _console.Error.WriteLine($"[ERR] {message}");
-            _console.Error.WriteLine($"[Exception] {exception.Message}");
+            _terminal.Error.WriteLine($"[ERR] {message}");
+            _terminal.Error.WriteLine($"[Exception] {exception.Message}");
             
             var stacktrace = exception.StackTrace;
 
             if (stacktrace is not null)
             {
-                _console.Error.WriteLine(stacktrace);
+                _terminal.Error.WriteLine(stacktrace);
             }
         }
     }

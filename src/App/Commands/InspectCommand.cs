@@ -1,22 +1,28 @@
 using System;
 using System.IO;
+using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
-using System.Linq;
 
-using App.Rendering;
+using App.Logging;
 using App.Extensions;
 using App.Inspection;
+using App.Inspection.Exceptions;
 
 namespace App.Commands
 {
     public class InspectCommand : Command
     {
-        public InspectCommand() : base("inspect", "Inspects a specific project or solution and generates a report of the results")
+        // These fields has the 'Ctor' prefix to avoid name conflicts with similar protected properties it inherits.
+        private const string CtorName = "inspect";
+        private const string CtorDescription = "Inspects a specific project or solution and generates a report of the results";
+        
+        public InspectCommand() : base(CtorName, CtorDescription)
         {
             foreach (var option in CreateArguments())
             {
@@ -28,69 +34,48 @@ namespace App.Commands
 
         private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
         {
-            ITerminal terminal = new SystemConsoleTerminal(console);
+            var terminal = new SystemConsoleTerminal(console);
+            var inspector = new Inspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
             
             try
             {
-                IInspectionProgress progress = IsProgressIndicatorDisabled(args, terminal)
-                    ? new NoopProgressIndicator()
-                    : new ConsoleProgressIndicator(terminal, Console.BufferWidth);
-
-                try
-                {
-                    var inspector = new Inspector(new CommandLineConsoleLogger(console, args.Verbose));
-
-                    return await Inspect(inspector, progress, terminal, args);
-                }
-                finally
-                {
-                    if (progress is IAsyncDisposable disposable)
-                    {
-                        await disposable.DisposeAsync();
-                    }
-                }
+                var results = await Inspect(inspector, args);
+                
+                WriteResults(terminal, results);
             }
-            catch (Exception)
+            catch (InspectionException exception)
             {
-                terminal.WriteErrorLine($"Failed to inspect: {args.Path}");
+                terminal.WriteErrorLine(exception.Message);
 
-                throw;
+                return 1;
             }
+            
+            return 0;
         }
         
-        private static async Task<int> Inspect(Inspector inspector, IInspectionProgress progress, ITerminal terminal, InspectCommandArgs args)
+        private static async Task<ICollection<InspectionResult>> Inspect(Inspector inspector, InspectCommandArgs args)
         {
-            var path = args.Path;
+            // TODO: Construct parameters from command line arguments.
+            var parameters = InspectionParameters.CreateWithDefaults(
+                Enumerable.Empty<string>(), 
+                Enumerable.Empty<string>(), 
+                new []{ "usage" }
+            );
             
-            if (path.HasExtension(".sln"))
-            {
-                var parameters = new InspectionParameters(
-                    Enumerable.Empty<string>(),
-                    Enumerable.Empty<string>()
-                );
-                
-                await inspector.InspectSolution(progress, args.Path, parameters);
-                
-                return 0;
-            }
-        
-            if (path.HasExtension(".csproj"))
-            {
-                inspector.InspectProject(args.Path);
-                
-                return 0;
-            }
-            
-            terminal.WriteErrorLine("The provided path points to a file of an unsupported file type.");
-            
-            return 1;
+            return await inspector.InspectAsync(args.Path, parameters, CancellationToken.None);
         }
 
-        private static bool IsProgressIndicatorDisabled(InspectCommandArgs args, ITerminal terminal)
+        private static void WriteResults(ITerminal terminal, ICollection<InspectionResult> results)
         {
-            return args.Verbose || args.Headless || terminal.IsOutputRedirected;
+            // TODO: Write the results to the terminal properly.
+            terminal.WriteLine("Results:");
+
+            foreach (var result in results)
+            {
+                terminal.WriteLine($"  {result.ProjectName}: {Enum.GetName(typeof(InspectionResultState), result.State)}");
+            }
         }
-        
+
         private static IEnumerable<Symbol> CreateArguments()
         {
             yield return new Argument<FileInfo>("path")

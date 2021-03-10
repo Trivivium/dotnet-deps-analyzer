@@ -1,16 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
 
-using App.Inspection.Collectors;
-
-using Microsoft.CodeAnalysis.CSharp;
+using App.Inspection.Metrics;
+using App.Inspection.Extensions;
+using App.Inspection.Exceptions;
 
 namespace App.Inspection
 {
@@ -23,132 +23,118 @@ namespace App.Inspection
             _logger = logger;
         }
         
-        public void InspectProject(FileInfo file)
-        {
-            // TODO: Implement inspection of specific projects.
-
-            throw new NotImplementedException();
-        }
-
-        public async Task InspectSolution(IInspectionProgress progress, FileInfo file, InspectionParameters parameters)
-        {
-            _logger.LogVerbose($"Inspecting solution: {file.FullName}");
-
-            var solution = await GetSolutionAsync(file);
-            
-            var collector = new UsingDirectiveCollector();
-
-            _logger.LogVerbose($"Found {solution.ProjectIds.Count} projects in solution");
-            
-            progress.Begin(solution.ProjectIds.Count, "Initializing solution workspace...");
-            
-            foreach (var project in solution.Projects)
-            {
-                progress.BeginTask($"Inspecting: {project.Name}");
-
-                if (parameters.IsProjectExcluded(project))
-                {
-                    _logger.LogInformation($"Ignoring excluded project: {project.Name}");
-
-                    progress.CompleteTask();
-                }
-
-                //var metadata = GetProjectMetadata(project, solution);
-                var compilation = await GetCompilationAsync(project);
-
-                if (compilation is null)
-                {
-                    _logger.LogError($"Failed to create compilation of project: {project.Name}, skipping...");
-                    
-                    continue;
-                }
-
-                foreach (var syntaxTree in compilation.SyntaxTrees)
-                {
-                    var root = await syntaxTree.GetRootAsync();
-                
-                    collector.Visit(root);
-                }
-                
-                progress.CompleteTask();
-            }
-            
-            progress.Complete();
-            
-            var usings = collector.UsingDirectives
-                .Where(d => !IsDirectiveIgnored(d))
-                .ToList();
-            
-            if (usings.Count > 0)
-            {
-                _logger.LogInformation("Found the following using directives of external packages:");
-                
-                foreach (var @using in usings)
-                {
-                    _logger.LogInformation($"\t{@using}");
-                }
-            }
-            else
-            {
-                _logger.LogInformation("No using directives found across any of the projects contained in the solution.");
-            }
-        }
-
-        private static async Task<Solution> GetSolutionAsync(FileSystemInfo file)
+        public async Task<ICollection<InspectionResult>> InspectAsync(FileSystemInfo file, InspectionParameters parameters, CancellationToken ct)
         {
             MSBuildLocator.RegisterDefaults();
-            
-            var msWorkspace = MSBuildWorkspace.Create();
 
-            return await msWorkspace.OpenSolutionAsync(file.FullName);
+            using(var workspace = MSBuildWorkspace.Create())
+            {
+                var context = new InspectionContext(file, workspace, parameters);
+                
+                if (file.HasExtension(".csproj"))
+                {
+                    _logger.LogVerbose($"Inspecting project: {file}");
+                    
+                    var result = await InspectProject(context, ct);
+                    
+                    return new List<InspectionResult>
+                    {
+                        result
+                    };
+                }
+            
+                if (file.HasExtension(".sln"))
+                {
+                    _logger.LogVerbose($"Inspecting solution: {file}");
+                    
+                    return await InspectSolution(context, ct);
+                }
+                
+                throw new InspectionException("The specified file path is not a reference to a solution or project file");
+            }
         }
         
-        private async Task<object> GetProjectMetadata(Project project, Solution solution)
+        private async Task<InspectionResult> InspectProject(InspectionContext context, CancellationToken ct)
         {
-            foreach (var reference in project.MetadataReferences.Where(mr => mr.Properties.Kind == MetadataImageKind.Module))
+            var project = await context.Workspace.OpenProjectAsync(context.File.FullName, progress: null, ct);
+
+            if (project is null)
             {
-                _logger.LogVerbose($"\t\t{reference.Display}");
+                return InspectionResult.LoadFailed(context.File);
             }
             
-            foreach (var reference in project.ProjectReferences)
+            var metrics = context.CreateMetricInstances(_logger, context.Parameters);
+            
+            return await ExecuteMetricsAsync(project, metrics, ct);
+        }
+
+        private async Task<ICollection<InspectionResult>> InspectSolution(InspectionContext context, CancellationToken ct)
+        {
+            var solution = await context.Workspace.OpenSolutionAsync(context.File.FullName, progress: null, ct);
+
+            if (solution is null)
             {
-                var p = solution.GetProject(reference.ProjectId);
-                
-                if (p == null)
+                throw new InspectionException("Failed to load the solution");
+            }
+
+            var results = new List<InspectionResult>(solution.ProjectIds.Count);
+
+            foreach (Project project in solution.Projects)
+            {
+                InspectionResult result;
+
+                if (context.Parameters.IsProjectExcluded(project))
                 {
-                    _logger.LogError($"Cannot find project with ID {reference.ProjectId.Id} in solution: {solution.FilePath ?? "Unknown"}");
+                    _logger.LogInformation($"Skipping ignored project: {project.Name}");
+                    
+                    result = InspectionResult.Ignored(project);
+                }
+                else
+                {
+                    // A new set of metrics is instantiated for each project to avoid concurrency issues
+                    // if the process is parallelized in the future.
+                    var metrics = context.CreateMetricInstances(_logger, context.Parameters);
+                    
+                    result = await ExecuteMetricsAsync(project, metrics, ct);
+                }
+                
+                results.Add(result);
+            }
+
+            return results;
+        }
+
+        private async Task<InspectionResult> ExecuteMetricsAsync(Project project, IReadOnlyCollection<IMetric> metrics, CancellationToken ct)
+        {
+            _logger.LogInformation($"Inspecting project: {project.Name}");
+            
+            var compilation = await project.GetCompilationAsync(ct);
+
+            if (compilation is null)
+            {
+                _logger.LogError($"Failed to compile project: {project.Name}");
+                
+                return InspectionResult.CompilationFailed(project);
+            }
+
+            foreach (var tree in compilation.SyntaxTrees)
+            {
+                var model = compilation.GetSemanticModel(tree);
+
+                foreach (var metric in metrics)
+                {
+                    await metric.CollectAsync(project, compilation, tree, model, ct);
                 }
             }
 
-            return new object();    // TODO: Return a type with the necessary metadata.
-        }
+            var results = new List<IMetricResult>(metrics.Count);
 
-        private async Task<Compilation?> GetCompilationAsync(Project project)
-        {
-            Compilation? compilation;
-                
-            try
+            foreach (var metric in metrics)
             {
-                compilation = await project.GetCompilationAsync();
-            }
-            catch (Exception exception)
-            {
-                _logger.LogError(exception, $"Compilation of project {project.Name} failed");
-
-                return null;
+                results.Add(metric.Compute());
             }
 
-            return compilation;
-        }
-        
-        private static async Task AnalyzeProject(Project project, IEnumerable<CSharpSyntaxWalker> collectors)
-        {
-
-        }
-        
-        private static bool IsDirectiveIgnored(in string directive)
-        {
-            return directive == "System" || directive.StartsWith("System.") || directive.StartsWith("Microsoft.");
+            return InspectionResult.Ok(project, results);
         }
     }
 }
