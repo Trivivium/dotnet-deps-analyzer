@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
+using System.Linq;
 
 using App.Rendering;
 using App.Extensions;
@@ -63,7 +64,12 @@ namespace App.Commands
             
             if (path.HasExtension(".sln"))
             {
-                await inspector.InspectSolution(progress, args.Path);
+                var parameters = new InspectionParameters(
+                    Enumerable.Empty<string>(),
+                    Enumerable.Empty<string>()
+                );
+                
+                await inspector.InspectSolution(progress, args.Path, parameters);
                 
                 return 0;
             }
