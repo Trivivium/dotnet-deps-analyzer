@@ -10,14 +10,12 @@ using App.Inspection.Extensions;
 
 namespace App.Inspection
 {
-    internal delegate IMetric MetricFactory(ILogger logger, InspectionParameters parameters);
-    
     internal class InspectionContext
     {
-        private readonly IDictionary<string, MetricFactory> _factories = new Dictionary<string, MetricFactory>
+        private readonly IDictionary<string, Func<IMetric>> _factories = new Dictionary<string, Func<IMetric>>
         {
-            { "USAGE",      (_, parameters) => new UsageMetric(parameters) },
-            { "SCATTERING", (_, _)          => new ScatteringMetric() }
+            { "USAGE",      () => new UsageMetric() },
+            { "SCATTERING", () => new ScatteringMetric() }
         };
         
         public readonly FileSystemInfo File;
@@ -31,15 +29,13 @@ namespace App.Inspection
             Parameters = parameters;
         }
         
-        public IReadOnlyCollection<IMetric> CreateMetricInstances(ILogger logger, InspectionParameters parameters)
+        public IEnumerable<IMetric> CreateMetricInstances(InspectionParameters parameters)
         {
-            var instances = new List<IMetric>(_factories.Count);
-            
             if (parameters.Metrics.IsEmpty())
             {
                 foreach (var factory in _factories.Values)
                 {
-                    instances.Add(factory(logger, parameters));
+                    yield return factory();
                 }
             }
             else
@@ -50,11 +46,9 @@ namespace App.Inspection
                 
                 foreach (var factory in selected)
                 {
-                    instances.Add(factory(logger, parameters));
+                    yield return factory();
                 }
             }
-
-            return instances;
         }
     }
 }

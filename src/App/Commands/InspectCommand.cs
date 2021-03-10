@@ -1,4 +1,3 @@
-using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -13,6 +12,7 @@ using App.Logging;
 using App.Extensions;
 using App.Inspection;
 using App.Inspection.Exceptions;
+using App.Inspection.Metrics;
 
 namespace App.Commands
 {
@@ -53,27 +53,45 @@ namespace App.Commands
             return 0;
         }
         
-        private static async Task<ICollection<InspectionResult>> Inspect(Inspector inspector, InspectCommandArgs args)
+        private static async Task<InspectionResult> Inspect(Inspector inspector, InspectCommandArgs args)
         {
             // TODO: Construct parameters from command line arguments.
             var parameters = InspectionParameters.CreateWithDefaults(
                 Enumerable.Empty<string>(), 
-                Enumerable.Empty<string>(), 
-                new []{ "usage" }
+                new []{ "IdeaVault." }, 
+                Enumerable.Empty<string>()
             );
             
             return await inspector.InspectAsync(args.Path, parameters, CancellationToken.None);
         }
 
-        private static void WriteResults(ITerminal terminal, ICollection<InspectionResult> results)
+        private static void WriteResults(ITerminal terminal, InspectionResult inspection)
         {
-            // TODO: Write the results to the terminal properly.
             terminal.WriteLine("Results:");
 
-            foreach (var result in results)
+            foreach (var project in inspection.Projects)
             {
-                terminal.WriteLine($"  {result.ProjectName}: {Enum.GetName(typeof(InspectionResultState), result.State)}");
+                terminal.WriteLine($"  {project.Name}");
+
+                foreach (var package in project.Packages)
+                {
+                    terminal.WriteLine($"    {package.Name}");
+
+                    foreach (var metric in package.Metrics)
+                    {
+                        if (metric is UsageMetricResult usage)
+                        {
+                            terminal.WriteLine($"      {metric.GetDisplayName()}: {usage.Percentage}%");
+
+                            foreach (var location in usage.Locations)
+                            {
+                                terminal.WriteLine($"        {location.File}:{location.Line}");
+                            }
+                        }
+                    }
+                }
             }
+            
         }
 
         private static IEnumerable<Symbol> CreateArguments()

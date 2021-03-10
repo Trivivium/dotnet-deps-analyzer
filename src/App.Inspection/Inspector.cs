@@ -23,52 +23,55 @@ namespace App.Inspection
             _logger = logger;
         }
         
-        public async Task<ICollection<InspectionResult>> InspectAsync(FileSystemInfo file, InspectionParameters parameters, CancellationToken ct)
+        public async Task<InspectionResult> InspectAsync(FileSystemInfo file, InspectionParameters parameters, CancellationToken ct)
         {
             MSBuildLocator.RegisterDefaults();
 
             using(var workspace = MSBuildWorkspace.Create())
             {
                 var context = new InspectionContext(file, workspace, parameters);
+                var metrics = context.CreateMetricInstances(context.Parameters).ToList();
                 
                 if (file.HasExtension(".csproj"))
                 {
                     _logger.LogVerbose($"Inspecting project: {file}");
                     
-                    var result = await InspectProject(context, ct);
-                    
-                    return new List<InspectionResult>
-                    {
-                        result
-                    };
+                    return await InspectProject(context, metrics, ct);
                 }
             
                 if (file.HasExtension(".sln"))
                 {
                     _logger.LogVerbose($"Inspecting solution: {file}");
                     
-                    return await InspectSolution(context, ct);
+                    return await InspectSolution(context, metrics, ct);
                 }
                 
                 throw new InspectionException("The specified file path is not a reference to a solution or project file");
             }
         }
         
-        private async Task<InspectionResult> InspectProject(InspectionContext context, CancellationToken ct)
+        private async Task<InspectionResult> InspectProject(InspectionContext context, IList<IMetric> metrics, CancellationToken ct)
         {
+            ProjectInspectionResult result;
+            
             var project = await context.Workspace.OpenProjectAsync(context.File.FullName, progress: null, ct);
 
             if (project is null)
             {
-                return InspectionResult.LoadFailed(context.File);
+                result = ProjectInspectionResult.LoadFailed(context.File);
             }
-            
-            var metrics = context.CreateMetricInstances(_logger, context.Parameters);
-            
-            return await ExecuteMetricsAsync(project, metrics, ct);
+            else
+            {
+                result = await AnalyzeAsync(context.Parameters, project, metrics, ct);
+            }
+
+            return new InspectionResult(new List<ProjectInspectionResult>
+            {
+                result
+            });
         }
 
-        private async Task<ICollection<InspectionResult>> InspectSolution(InspectionContext context, CancellationToken ct)
+        private async Task<InspectionResult> InspectSolution(InspectionContext context, IList<IMetric> metrics, CancellationToken ct)
         {
             var solution = await context.Workspace.OpenSolutionAsync(context.File.FullName, progress: null, ct);
 
@@ -77,34 +80,30 @@ namespace App.Inspection
                 throw new InspectionException("Failed to load the solution");
             }
 
-            var results = new List<InspectionResult>(solution.ProjectIds.Count);
+            var results = new List<ProjectInspectionResult>(solution.ProjectIds.Count);
 
             foreach (Project project in solution.Projects)
             {
-                InspectionResult result;
+                ProjectInspectionResult result;
 
-                if (context.Parameters.IsProjectExcluded(project))
+                if (context.Parameters.ExcludedProjects.Contains(project.Name.ToUpperInvariant()))
                 {
                     _logger.LogInformation($"Skipping ignored project: {project.Name}");
                     
-                    result = InspectionResult.Ignored(project);
+                    result = ProjectInspectionResult.Ignored(project);
                 }
                 else
                 {
-                    // A new set of metrics is instantiated for each project to avoid concurrency issues
-                    // if the process is parallelized in the future.
-                    var metrics = context.CreateMetricInstances(_logger, context.Parameters);
-                    
-                    result = await ExecuteMetricsAsync(project, metrics, ct);
+                    result = await AnalyzeAsync(context.Parameters, project, metrics, ct);
                 }
                 
                 results.Add(result);
             }
 
-            return results;
+            return new InspectionResult(results);
         }
 
-        private async Task<InspectionResult> ExecuteMetricsAsync(Project project, IReadOnlyCollection<IMetric> metrics, CancellationToken ct)
+        private async Task<ProjectInspectionResult> AnalyzeAsync(InspectionParameters parameters, Project project, IList<IMetric> metrics, CancellationToken ct)
         {
             _logger.LogInformation($"Inspecting project: {project.Name}");
             
@@ -114,27 +113,55 @@ namespace App.Inspection
             {
                 _logger.LogError($"Failed to compile project: {project.Name}");
                 
-                return InspectionResult.CompilationFailed(project);
+                return ProjectInspectionResult.CompilationFailed(project);
             }
 
+            var registry = await CollectAsync(parameters, compilation, ct);
+            
+            return ComputeMetrics(project, registry, metrics);
+        }
+
+        private static async Task<Registry> CollectAsync(InspectionParameters parameters, Compilation compilation, CancellationToken ct)
+        {
+            var registry = Registry.CreateFromParameters(parameters);
+            
             foreach (var tree in compilation.SyntaxTrees)
             {
                 var model = compilation.GetSemanticModel(tree);
+                var collector = new RegistryCollector(registry, model);
 
+                var root = await tree.GetRootAsync(ct);
+                
+                collector.Visit(root);
+            }
+
+            return registry;
+        }
+
+        private static ProjectInspectionResult ComputeMetrics(Project project, Registry registry, IList<IMetric> metrics)
+        {      
+            // TODO: Compute packages 
+            ICollection<Package> packages = new[]
+            {
+                new Package(new Namespace("Serilog.AspNetCore")),
+                new Package(new Namespace("Swashbuckle.AspNetCore")),
+            };
+            
+            var results = new List<PackageInspectionResult>();
+
+            foreach (var package in packages)
+            {
+                var computations = new List<IMetricResult>();
+                
                 foreach (var metric in metrics)
                 {
-                    await metric.CollectAsync(project, compilation, tree, model, ct);
+                    computations.Add(metric.Compute(registry, package));
                 }
+                
+                results.Add(new PackageInspectionResult(package, computations));
             }
 
-            var results = new List<IMetricResult>(metrics.Count);
-
-            foreach (var metric in metrics)
-            {
-                results.Add(metric.Compute());
-            }
-
-            return InspectionResult.Ok(project, results);
+            return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, results);
         }
     }
 }

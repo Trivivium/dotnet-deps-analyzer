@@ -1,8 +1,6 @@
 using System.Linq;
 using System.Collections.Generic;
 
-using Microsoft.CodeAnalysis;
-
 namespace App.Inspection
 {
     /// <summary>
@@ -10,65 +8,50 @@ namespace App.Inspection
     /// </summary>
     public sealed class InspectionParameters
     {
-        private static readonly string[] _defaultIgnoredNamespaces = {
-            "System.",
+        private static readonly string[] _defaultNamespaceExclusions = {
+            "System.", 
             "Microsoft."
         };
 
         /// <summary>
-        /// Creates a parameter instance with default the configuration. The defaults ignores namespaces
+        /// Creates a parameter instance with default the configuration. The defaults excludes namespaces
         /// that starts with a 'System.' and 'Microsoft.' prefix.
         /// </summary>
         /// <param name="excludedProjects">A collection of projects to exclude from the analysis.</param>
-        /// <param name="ignoredNamespaces">A collection of namespaces to ignore in addition to the defaults.</param>
+        /// <param name="excludedNamespaces">A collection of namespaces to exclude in addition to the defaults.</param>
         /// <param name="metrics">An optional collection of metrics to compute. If <see langword="null"/> is provided all metrics are computed.</param>
         public static InspectionParameters CreateWithDefaults(
             IEnumerable<string> excludedProjects,
-            IEnumerable<string> ignoredNamespaces,
+            IEnumerable<string> excludedNamespaces,
             IEnumerable<string>? metrics)
         {
-            ignoredNamespaces = ignoredNamespaces
-                .Union(_defaultIgnoredNamespaces)
+            excludedNamespaces = excludedNamespaces
+                .Union(_defaultNamespaceExclusions)
                 .Distinct();
 
-            return new InspectionParameters(excludedProjects, ignoredNamespaces, metrics);
+            return new InspectionParameters(excludedProjects, excludedNamespaces, metrics);
         }
 
-        private readonly ICollection<string> _excludedProjects;
-        private readonly ICollection<string> _ignoredNamespaces;
-        
-        internal List<string> Metrics { get; }
+        internal readonly ICollection<string> ExcludedProjects;
+        internal readonly ICollection<string> ExcludedNamespaces;
+        internal readonly ICollection<string> Metrics;
 
         private InspectionParameters(
             IEnumerable<string> excludedProjects,
             IEnumerable<string> ignoredNamespaces,
             IEnumerable<string>? metrics)
         {
-            _excludedProjects = excludedProjects
+            ExcludedProjects = excludedProjects
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
 
-            _ignoredNamespaces = ignoredNamespaces
+            ExcludedNamespaces = ignoredNamespaces
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
             
             Metrics = (metrics ?? new List<string>())
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
-        }
-
-        public bool IsProjectExcluded(Project project)
-        {
-            var name = project.Name.ToUpperInvariant();
-
-            return _excludedProjects.Contains(name);
-        }
-
-        public bool IsNamespaceIgnored(in string ns)
-        {
-            var normalized = ns.ToUpperInvariant();
-
-            return normalized == "SYSTEM" || _ignoredNamespaces.Any(n => normalized.StartsWith(n));
         }
     }
 }
