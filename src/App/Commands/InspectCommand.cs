@@ -81,12 +81,12 @@ namespace App.Commands
                     {
                         if (metric is UsageMetricResult usage)
                         {
-                            terminal.WriteLine($"      {metric.GetDisplayName()}: {usage.Percentage}%");
+                            terminal.WriteLine($"      {metric.GetDisplayName()}: {usage.Percentage:#.##}%");
+                        }
 
-                            foreach (var location in usage.Locations)
-                            {
-                                terminal.WriteLine($"        {location.File}:{location.Line}");
-                            }
+                        if (metric is ScatteringMetricResult scatter)
+                        {
+                            terminal.WriteLine($"      {metric.GetDisplayName()}: {scatter.Percentage:#.##}%");
                         }
                     }
                 }

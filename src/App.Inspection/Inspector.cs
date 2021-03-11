@@ -118,7 +118,7 @@ namespace App.Inspection
 
             var registry = await CollectAsync(parameters, compilation, ct);
             
-            return ComputeMetrics(project, registry, metrics);
+            return ComputeMetrics(project, compilation, registry, metrics);
         }
 
         private static async Task<Registry> CollectAsync(InspectionParameters parameters, Compilation compilation, CancellationToken ct)
@@ -138,7 +138,7 @@ namespace App.Inspection
             return registry;
         }
 
-        private static ProjectInspectionResult ComputeMetrics(Project project, Registry registry, IList<IMetric> metrics)
+        private static ProjectInspectionResult ComputeMetrics(Project project, Compilation compilation, Registry registry, IList<IMetric> metrics)
         {      
             // TODO: Compute packages 
             ICollection<Package> packages = new[]
@@ -155,7 +155,7 @@ namespace App.Inspection
                 
                 foreach (var metric in metrics)
                 {
-                    computations.Add(metric.Compute(registry, package));
+                    computations.Add(metric.Compute(project, compilation, registry, package));
                 }
                 
                 results.Add(new PackageInspectionResult(package, computations));
