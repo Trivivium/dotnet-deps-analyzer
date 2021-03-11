@@ -1,11 +1,10 @@
-using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
 
 using App.Inspection;
 using App.Inspection.Metrics;
-using App.Rendering.Extensions;
 
 namespace App.Rendering
 {
@@ -15,6 +14,16 @@ namespace App.Rendering
         {
             var formatter = new TextSpanFormatter();
             
+            formatter.AddFormatter<float>(f =>
+            {
+                if (f == 0f)
+                {
+                    return new ContentSpan("-".PadLeft(12));
+                }
+
+                return new ContentSpan($"{f:0.00}".PadLeft(12));
+            });
+            
             var view = new MetricsTableView();
             var table = new TableView<MetricsTableLine>
             {
@@ -22,23 +31,20 @@ namespace App.Rendering
             };
 
             table.AddColumn(line => 
-                line.Package,
-                new ContentView("Package".Underlined())
+                line.Package.PadRight(35),
+                new ContentView("Package".PadRight(35))
             );
             
             table.AddColumn(
-                line => $"{line.Usage:#.##}",
-                new ContentView("Usage".Underlined())
+                line => formatter.Format(line.Usage),
+                new ContentView("Usage (%)".PadLeft(12))
             );
             
             table.AddColumn(
-                line => $"{line.Scatter:#.##}",
-                new ContentView("Scatter".Underlined())
+                line => formatter.Format(line.Scatter),
+                new ContentView("Scatter (%)".PadLeft(12))
             );
-
-            view.Add(new ContentView("\n"));
-            view.Add(new ContentView(formatter.ParseToSpan($"Project: {result.Name.LightGreen()}")));
-            view.Add(new ContentView("\n"));
+            
             view.Add(table);
             
             return view;
@@ -51,7 +57,7 @@ namespace App.Rendering
         {
             var items = new List<MetricsTableLine>(result.Packages.Count);
 
-            foreach (var package in result.Packages)
+            foreach (var package in result.Packages.OrderBy(p => p.Name))
             {
                 float? usageValue = null;
                 float? scatterValue = null;

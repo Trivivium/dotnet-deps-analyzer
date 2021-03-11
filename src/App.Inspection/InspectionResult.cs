@@ -87,7 +87,7 @@ namespace App.Inspection
         
         public IReadOnlyCollection<IMetricResult> Metrics { get; }
 
-        public string Name => _package.Namespace.Value;
+        public string Name => _package.DisplayName;
 
         internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult> metrics)
         {

@@ -1,24 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 
 namespace App.Inspection
 {
+    [DebuggerDisplay("{DisplayName,nq}")]
     public class Package
     {
+        public readonly string FilePath;
         public readonly Namespace Namespace;
-        public readonly ICollection<Type> UniqueTypes = new List<Type>();
+        public readonly ICollection<Type> ExportedTypes;
 
-        public int UniqueTypeCount => 100;  // TODO: Derive this from the actual property when package inspection is implemented.
+        public int ExportedTypesCount => ExportedTypes.Count;
 
-        public Package(Namespace ns)
+        public string DisplayName => Path.GetFileNameWithoutExtension(FilePath);
+        
+        public Package(string filePath, Namespace ns, ICollection<Type> exportedTypes)
         {
+            FilePath = filePath;
             Namespace = ns;
+            ExportedTypes = exportedTypes;
         }
-    }
-
-    public class UnknownPackage : Package
-    {
-        public UnknownPackage(Namespace ns) : base(ns)
-        { }
     }
 }

@@ -12,6 +12,8 @@ using App.Inspection.Metrics;
 using App.Inspection.Extensions;
 using App.Inspection.Exceptions;
 
+using Microsoft.CodeAnalysis.FindSymbols;
+
 namespace App.Inspection
 {
     public class Inspector
@@ -26,9 +28,11 @@ namespace App.Inspection
         public async Task<InspectionResult> InspectAsync(FileSystemInfo file, InspectionParameters parameters, CancellationToken ct)
         {
             MSBuildLocator.RegisterDefaults();
-
+            
             using(var workspace = MSBuildWorkspace.Create())
             {
+                workspace.LoadMetadataForReferencedProjects = true;
+                
                 var context = new InspectionContext(file, workspace, parameters);
                 var metrics = context.CreateMetricInstances(context.Parameters).ToList();
                 
@@ -62,7 +66,7 @@ namespace App.Inspection
             }
             else
             {
-                result = await AnalyzeAsync(context.Parameters, project, metrics, ct);
+                result = await ProcessAsync(context.Parameters, project, metrics, ct);
             }
 
             return new InspectionResult(new List<ProjectInspectionResult>
@@ -94,7 +98,7 @@ namespace App.Inspection
                 }
                 else
                 {
-                    result = await AnalyzeAsync(context.Parameters, project, metrics, ct);
+                    result = await ProcessAsync(context.Parameters, project, metrics, ct);
                 }
                 
                 results.Add(result);
@@ -103,70 +107,100 @@ namespace App.Inspection
             return new InspectionResult(results);
         }
 
-        private async Task<ProjectInspectionResult> AnalyzeAsync(InspectionParameters parameters, Project project, IList<IMetric> metrics, CancellationToken ct)
+        private async Task<ProjectInspectionResult> ProcessAsync(InspectionParameters parameters, Project project, IList<IMetric> metrics, CancellationToken ct)
         {
             _logger.LogVerbose($"Inspecting project: {project.Name}");
 
-            
-            
-
-            //return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, new List<PackageInspectionResult>());
-            
             var compilation = await project.GetCompilationAsync(ct);
-            
+                
             if (compilation is null)
             {
                 _logger.LogError($"Failed to compile project: {project.Name}");
-                
+                    
                 return ProjectInspectionResult.CompilationFailed(project);
             }
             
-            var registry = await CollectAsync(parameters, project, compilation, ct);
-            
-            return ComputeMetrics(project, compilation, registry, metrics);
-        }
-
-        private static async Task<Registry> CollectAsync(InspectionParameters parameters, Project project, Compilation compilation, CancellationToken ct)
-        {
-            var registry = Registry.CreateFromParameters(parameters, project);
-            
-            foreach (var tree in compilation.SyntaxTrees)
+            using (var packageLoadContext = new PackageLoadContext(project, _logger))
             {
-                var model = compilation.GetSemanticModel(tree);
-                var collector = new RegistryCollector(registry, model);
-
-                var root = await tree.GetRootAsync(ct);
+                var resolver = packageLoadContext.GetResolver();
                 
-                collector.Visit(root);
-            }
+                var exclusions = NamespaceExclusionList.CreateFromParameters(parameters, project);
+                var packages = resolver.GetPackages(project, exclusions);
 
-            return registry;
-        }
-
-        private static ProjectInspectionResult ComputeMetrics(Project project, Compilation compilation, Registry registry, IList<IMetric> metrics)
-        {      
-            // TODO: Compute packages 
-            ICollection<Package> packages = new[]
-            {
-                new Package(new Namespace("Serilog.AspNetCore")),
-                new Package(new Namespace("Swashbuckle.AspNetCore")),
-            };
-            
-            var results = new List<PackageInspectionResult>();
-
-            foreach (var package in packages)
-            {
-                var computations = new List<IMetricResult>();
+                var registry = new Dictionary<Package, List<ReferencedSymbol>>();
+                var solution = project.Solution;
                 
-                foreach (var metric in metrics)
+                foreach (var package in packages)
                 {
-                    computations.Add(metric.Compute(project, compilation, registry, package));
+                    var symbols = new List<ReferencedSymbol>();
+
+                    foreach (var type in package.ExportedTypes)
+                    {
+                        var fqn = type.FullName;
+
+                        if (fqn is null)
+                        {
+                            _logger.LogError($"Type {type} has no FQN");
+
+                            continue;
+                        }
+                        
+                        var compilationType = compilation.GetTypeByMetadataName(fqn);
+
+                        if (compilationType is null)
+                        {
+                            _logger.LogVerbose($"Type {type} was not found in the compilation");
+
+                            continue;
+                        }
+
+                        var refs = await SymbolFinder.FindReferencesAsync(compilationType, solution, ct);
+
+                        if (refs is null)
+                        {
+                            continue;
+                        }
+
+                        symbols.AddRange(refs);
+                        
+                        if (compilationType.IsType)
+                        {
+                            var members = compilationType.GetMembers();
+                            var tasks = new List<Task<IEnumerable<ReferencedSymbol>>>(members.Length);
+                            
+                            foreach (var member in members)
+                            {
+                                tasks.Add(SymbolFinder.FindReferencesAsync(member, solution, ct));
+                            }
+
+                            var membersRefs = await Task.WhenAll(tasks);
+
+                            foreach (var mRefs in membersRefs)
+                            {
+                                symbols.AddRange(mRefs);
+                            }
+                        }
+                    }
+                    
+                    registry.Add(package, symbols.Where(s => s.Locations.Any()).ToList());
+                }
+
+                var results = new List<PackageInspectionResult>();
+                
+                foreach (var (package, refs) in registry)
+                {
+                    var computations = new List<IMetricResult>();
+                    
+                    foreach (var metric in metrics)
+                    {
+                        computations.Add(metric.Compute(project, compilation, package, refs));
+                    }
+                    
+                    results.Add(new PackageInspectionResult(package, computations));
                 }
                 
-                results.Add(new PackageInspectionResult(package, computations));
+                return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, results);
             }
-
-            return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, results);
         }
     }
 }

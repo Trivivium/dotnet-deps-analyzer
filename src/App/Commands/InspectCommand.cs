@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
+using System.Diagnostics;
 
 using App.Logging;
 using App.Rendering;
@@ -39,9 +40,15 @@ namespace App.Commands
             
             try
             {
+                var sw = new Stopwatch();
+                
+                sw.Restart();
+
                 var results = await Inspect(inspector, args);
                 
                 WriteResults(terminal, results);
+                
+                terminal.WriteLine($"Elapsed: {sw.Elapsed:g}");
             }
             catch (InspectionException exception)
             {
