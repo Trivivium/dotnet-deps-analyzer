@@ -88,7 +88,7 @@ namespace App.Inspection
 
                 if (context.Parameters.ExcludedProjects.Contains(project.Name.ToUpperInvariant()))
                 {
-                    _logger.LogInformation($"Skipping ignored project: {project.Name}");
+                    _logger.LogVerbose($"Skipping ignored project: {project.Name}");
                     
                     result = ProjectInspectionResult.Ignored(project);
                 }
@@ -105,7 +105,7 @@ namespace App.Inspection
 
         private async Task<ProjectInspectionResult> AnalyzeAsync(InspectionParameters parameters, Project project, IList<IMetric> metrics, CancellationToken ct)
         {
-            _logger.LogInformation($"Inspecting project: {project.Name}");
+            _logger.LogVerbose($"Inspecting project: {project.Name}");
             
             var compilation = await project.GetCompilationAsync(ct);
 

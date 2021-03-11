@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -7,12 +8,13 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
+using System.CommandLine.Rendering.Views;
 
 using App.Logging;
 using App.Extensions;
 using App.Inspection;
-using App.Inspection.Exceptions;
 using App.Inspection.Metrics;
+using App.Inspection.Exceptions;
 
 namespace App.Commands
 {
@@ -29,10 +31,10 @@ namespace App.Commands
                 Add(option);
             }
 
-            Handler = CommandHandler.Create((InspectCommandArgs args, IConsole console) => Handle(args, console));
+            Handler = CommandHandler.Create((InspectCommandArgs args, IConsole console, InvocationContext ctx) => Handle(args, console, ctx));
         }
 
-        private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
+        private static async Task<int> Handle(InspectCommandArgs args, IConsole console, InvocationContext ctx)
         {
             var terminal = new SystemConsoleTerminal(console);
             var inspector = new Inspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
@@ -41,7 +43,7 @@ namespace App.Commands
             {
                 var results = await Inspect(inspector, args);
                 
-                WriteResults(terminal, results);
+                WriteResults(ctx, terminal, results);
             }
             catch (InspectionException exception)
             {
@@ -65,33 +67,95 @@ namespace App.Commands
             return await inspector.InspectAsync(args.Path, parameters, CancellationToken.None);
         }
 
-        private static void WriteResults(ITerminal terminal, InspectionResult inspection)
+        private static void WriteResults(InvocationContext context, ITerminal terminal, InspectionResult inspection)
         {
-            terminal.WriteLine("Results:");
+            var maxLength = inspection.Projects.SelectMany(p => p.Packages).Max(p => p.Name.Length);
+            
+            // Manually add underlines to the header.
+            var delimiter = new InspectionTableRow
+            {
+                Package = new string('-', maxLength),
+                Usage = new string('-', "Usage (%)".Length),
+                Scatter = new string('-', "Scattering (%)".Length)
+            };
 
+            var frames = new StackLayoutView
+            {
+                new ContentView("\n"),
+                new ContentView($"Date: {DateTimeOffset.UtcNow}"),
+                new ContentView("\n")
+            };
+            
             foreach (var project in inspection.Projects)
             {
-                terminal.WriteLine($"  {project.Name}");
-
+                var items = new List<InspectionTableRow>
+                {
+                    delimiter
+                };
+                
                 foreach (var package in project.Packages)
                 {
-                    terminal.WriteLine($"    {package.Name}");
-
+                    float? usageValue = null;
+                    float? scatterValue = null;
+                    
                     foreach (var metric in package.Metrics)
                     {
-                        if (metric is UsageMetricResult usage)
+                        switch (metric)
                         {
-                            terminal.WriteLine($"      {metric.GetDisplayName()}: {usage.Percentage:#.##}%");
-                        }
+                            case UsageMetricResult usage:
+                                usageValue = usage.Percentage;
+                                break;
 
-                        if (metric is ScatteringMetricResult scatter)
-                        {
-                            terminal.WriteLine($"      {metric.GetDisplayName()}: {scatter.Percentage:#.##}%");
+                            case ScatteringMetricResult scatter:
+                                scatterValue = scatter.Percentage;
+                                break;
                         }
                     }
+                    
+                    items.Add(new InspectionTableRow
+                    {
+                        Package = package.Name,
+                        Usage   = usageValue?.ToString("#.##") ?? "n/a",
+                        Scatter = scatterValue?.ToString("#.##") ?? "n/a"
+                    });
                 }
-            }
+                
+                var table = new TableView<InspectionTableRow>
+                {
+                    Items = items
+                };
             
+                table.AddColumn(row => row.Package, new ContentView("Package"));
+                table.AddColumn(row => row.Usage,   new ContentView("Usage (%)"));
+                table.AddColumn(row => row.Scatter, new ContentView("Scattering (%)"));
+
+                var grid = new GridView();
+                
+                grid.SetColumns(ColumnDefinition.Fixed(5), ColumnDefinition.SizeToContent());
+                grid.SetRows(RowDefinition.SizeToContent());
+                
+                grid.SetChild(table, 1, 0);
+                
+                frames.Add(new StackLayoutView(Orientation.Vertical)
+                {
+                    new ContentView(project.Name),
+                    grid,
+                    new ContentView("\n")
+                });
+            }
+
+            frames.Add(new ContentView("\n"));
+
+            var renderer = new ConsoleRenderer(terminal, context.BindingContext.OutputMode(), false);
+            
+            using var screen = new ScreenView(renderer, terminal)
+            {
+                Child = frames
+            };
+            
+            var region = renderer.GetRegion();
+            
+            screen.Render(new Region(0, Console.CursorTop, region.Width, region.Height));
         }
 
         private static IEnumerable<Symbol> CreateArguments()
@@ -106,5 +170,12 @@ namespace App.Commands
 
             yield return new Option<bool>("--headless", "Disables any any formatting of the console output (e.g., the progress indicator)");
         }
+    }
+
+    internal class InspectionTableRow
+    {
+        public string Package = string.Empty;
+        public string Usage = string.Empty;
+        public string Scatter = string.Empty;
     }
 }

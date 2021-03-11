@@ -13,7 +13,7 @@ namespace App.Inspection
     public sealed class InspectionResult
     {
         public IReadOnlyCollection<ProjectInspectionResult> Projects;
-
+        
         internal InspectionResult(IReadOnlyCollection<ProjectInspectionResult> projects)
         {
             Projects = projects;
