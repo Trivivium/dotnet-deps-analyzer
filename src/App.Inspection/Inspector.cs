@@ -106,16 +106,20 @@ namespace App.Inspection
         private async Task<ProjectInspectionResult> AnalyzeAsync(InspectionParameters parameters, Project project, IList<IMetric> metrics, CancellationToken ct)
         {
             _logger.LogVerbose($"Inspecting project: {project.Name}");
-            
-            var compilation = await project.GetCompilationAsync(ct);
 
+
+
+            //return new ProjectInspectionResult(ProjectInspectionState.Ok, "test", new List<PackageInspectionResult>());
+
+            var compilation = await project.GetCompilationAsync(ct);
+            
             if (compilation is null)
             {
                 _logger.LogError($"Failed to compile project: {project.Name}");
                 
                 return ProjectInspectionResult.CompilationFailed(project);
             }
-
+            
             var registry = await CollectAsync(parameters, compilation, ct);
             
             return ComputeMetrics(project, compilation, registry, metrics);
