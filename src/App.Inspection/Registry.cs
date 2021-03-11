@@ -17,9 +17,21 @@ namespace App.Inspection
                 .Select(ns => new Namespace(ns))
                 .ToList();
 
+            // Add references to type in the project itself to the exclusions 
             if (project.DefaultNamespace != null)
             {
                 namespaces.Add(new Namespace(project.DefaultNamespace));
+            }
+            
+            // Add referenced projects in the same solution to the exclusions
+            foreach (var reference in project.ProjectReferences)
+            {
+                var referencedProject = project.Solution.GetProject(reference.ProjectId);
+
+                if (referencedProject?.DefaultNamespace != null)
+                {
+                    namespaces.Add(new Namespace(referencedProject.DefaultNamespace));
+                }
             }
             
             return new Registry(namespaces);

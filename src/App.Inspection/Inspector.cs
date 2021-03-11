@@ -107,10 +107,11 @@ namespace App.Inspection
         {
             _logger.LogVerbose($"Inspecting project: {project.Name}");
 
+            
+            
 
-
-            //return new ProjectInspectionResult(ProjectInspectionState.Ok, "test", new List<PackageInspectionResult>());
-
+            //return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, new List<PackageInspectionResult>());
+            
             var compilation = await project.GetCompilationAsync(ct);
             
             if (compilation is null)
