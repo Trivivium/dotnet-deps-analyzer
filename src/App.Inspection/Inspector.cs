@@ -120,14 +120,14 @@ namespace App.Inspection
                 return ProjectInspectionResult.CompilationFailed(project);
             }
             
-            var registry = await CollectAsync(parameters, compilation, ct);
+            var registry = await CollectAsync(parameters, project, compilation, ct);
             
             return ComputeMetrics(project, compilation, registry, metrics);
         }
 
-        private static async Task<Registry> CollectAsync(InspectionParameters parameters, Compilation compilation, CancellationToken ct)
+        private static async Task<Registry> CollectAsync(InspectionParameters parameters, Project project, Compilation compilation, CancellationToken ct)
         {
-            var registry = Registry.CreateFromParameters(parameters);
+            var registry = Registry.CreateFromParameters(parameters, project);
             
             foreach (var tree in compilation.SyntaxTrees)
             {

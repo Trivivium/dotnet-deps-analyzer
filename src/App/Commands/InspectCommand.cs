@@ -58,7 +58,7 @@ namespace App.Commands
             // TODO: Construct parameters from command line arguments.
             var parameters = InspectionParameters.CreateWithDefaults(
                 Enumerable.Empty<string>(), 
-                new []{ "IdeaVault." }, 
+                Enumerable.Empty<string>(), 
                 Enumerable.Empty<string>()
             );
             

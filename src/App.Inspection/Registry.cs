@@ -11,12 +11,17 @@ namespace App.Inspection
         private readonly ICollection<Namespace> _excludedNamespaces;
         private readonly ICollection<Match> _matches = new List<Match>();
 
-        public static Registry CreateFromParameters(InspectionParameters parameters)
+        public static Registry CreateFromParameters(InspectionParameters parameters, Project project)
         {
             var namespaces = parameters.ExcludedNamespaces
                 .Select(ns => new Namespace(ns))
                 .ToList();
 
+            if (project.DefaultNamespace != null)
+            {
+                namespaces.Add(new Namespace(project.DefaultNamespace));
+            }
+            
             return new Registry(namespaces);
         }
         
