@@ -71,7 +71,6 @@ namespace App.Commands
             
             var renderer = new ConsoleRenderer(terminal, OutputMode.PlainText);
 
-
             await foreach (var project in inspector.InspectAsync(args.Path, parameters, CancellationToken.None))
             {
                 var view = new StackLayoutView
@@ -83,7 +82,7 @@ namespace App.Commands
                 
                 if (!project.Packages.Any())
                 {
-                    view.Add(new ContentView("-- No packages found in this project --"));
+                    view.Add(new ContentView("-- No packages available --"));
                 }
                 else
                 {                
