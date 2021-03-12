@@ -5,21 +5,33 @@ using System.IO;
 
 namespace App.Inspection
 {
-    [DebuggerDisplay("{DisplayName,nq}")]
+    [DebuggerDisplay("{Name,nq}")]
     public class Package
     {
+        /// <summary>
+        /// An absolute path to the DLL file the package was resolved from.
+        /// </summary>
         public readonly string FilePath;
-        public readonly Namespace Namespace;
+        
+        /// <summary>
+        /// A collection of types publicly available in the corresponding assembly of the
+        /// package.
+        /// </summary>
         public readonly ICollection<Type> ExportedTypes;
 
+        /// <summary>
+        /// The number of public types in the assembly.
+        /// </summary>
         public int ExportedTypesCount => ExportedTypes.Count;
 
-        public string DisplayName => Path.GetFileNameWithoutExtension(FilePath);
+        /// <summary>
+        /// The name of the package.
+        /// </summary>
+        public string Name => Path.GetFileNameWithoutExtension(FilePath);
         
-        public Package(string filePath, Namespace ns, ICollection<Type> exportedTypes)
+        public Package(string filePath, ICollection<Type> exportedTypes)
         {
             FilePath = filePath;
-            Namespace = ns;
             ExportedTypes = exportedTypes;
         }
     }

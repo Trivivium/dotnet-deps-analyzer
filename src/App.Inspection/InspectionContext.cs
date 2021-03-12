@@ -29,9 +29,13 @@ namespace App.Inspection
             Parameters = parameters;
         }
         
+        /// <summary>
+        /// Instantiates all metrics specified by the <paramref name="parameters"/>.
+        /// </summary>
+        /// <param name="parameters">The inspection parameters provided by the user.</param>
         public IEnumerable<IMetric> CreateMetricInstances(InspectionParameters parameters)
         {
-            if (parameters.Metrics.IsEmpty())
+            if (parameters.Metrics.Count < 1)
             {
                 foreach (var factory in _factories.Values)
                 {

@@ -10,6 +10,12 @@ namespace App.Inspection
     {
         private readonly List<Namespace> _namespaces;
 
+        /// <summary>
+        /// Creates an exclusion list based on the inspection parameters and the project being inspected. The
+        /// project itself and any project-references are also added to the list.
+        /// </summary>
+        /// <param name="parameters">The inspection parameters provided by the user.</param>
+        /// <param name="project">The project being inspected.</param>
         public static NamespaceExclusionList CreateFromParameters(InspectionParameters parameters, Project project)
         {
             var namespaces = parameters.ExcludedNamespaces
@@ -51,6 +57,11 @@ namespace App.Inspection
             _namespaces = namespaces;
         }
         
+        /// <summary>
+        /// Determines if the provided namespace corresponds to an
+        /// excluded namespace.
+        /// </summary>
+        /// <param name="ns">The namespace to check.</param>
         public bool IsExcluded(string ns)
         {
             if ("System".Equals(ns, StringComparison.OrdinalIgnoreCase))
@@ -61,9 +72,14 @@ namespace App.Inspection
             return _namespaces.Any(exclusion => ns.StartsWith(exclusion.Value, StringComparison.OrdinalIgnoreCase));
         }
 
-        public bool IsExcluded(INamespaceSymbol ns)
+        /// <summary>
+        /// Determines if the provided Roslyn namespace symbol corresponds to an
+        /// excluded namespace.
+        /// </summary>
+        /// <param name="symbol">The symbol to check.</param>
+        public bool IsExcluded(INamespaceSymbol symbol)
         {
-            return IsExcluded(ns.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat));
+            return IsExcluded(symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat));
         }
     }
 }

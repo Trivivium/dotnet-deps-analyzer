@@ -6,6 +6,10 @@ using Microsoft.CodeAnalysis;
 
 namespace App.Inspection
 {
+    /// <summary>
+    /// Resolves external packages from executable references of a project.
+    /// See <see cref="PackageLoadContext"/> for more details.
+    /// </summary>
     internal class PackageResolver
     {
         private readonly PackageLoadContext _context;
@@ -17,17 +21,22 @@ namespace App.Inspection
             _logger = logger;
         }
         
-        public IEnumerable<Package> GetPackages(Project project, NamespaceExclusionList exclusions)
+        /// <summary>
+        /// Gets a collection of packages available from executable references after having
+        /// filtered them by the excluded namespaces.
+        /// </summary>
+        /// <param name="exclusions">A collection of namespaces excluded from the analysis.</param>
+        public IEnumerable<Package> GetPackages(NamespaceExclusionList exclusions)
         {
             var packages = new List<Package>();
             
-            foreach (var reference in _context.GetReferences())
+            foreach (var reference in _context.GetExecutableReferences())
             {
                 var path = reference.FilePath;
 
                 if (path is null)
                 {
-                    _logger.LogError($"Failed to load referenced assembly: {reference.Display ?? "<unknown>"} by project: {project.Name}");
+                    _logger.LogError($"Failed to load referenced assembly: {reference.Display ?? "<unknown>"}");
                     
                     continue;
                 }
@@ -49,12 +58,15 @@ namespace App.Inspection
                     continue;
                 }
 
-                packages.Add(CreatePackage(reference, assembly, ns));
+                packages.Add(CreatePackage(reference, assembly));
             }
 
             return packages;
         }
 
+        /// <summary>
+        /// Gets the root namespace of an assembly.
+        /// </summary>
         private static string? GetNamespace(Assembly assembly)
         {
             var exportedType = assembly.ExportedTypes.FirstOrDefault(type => type.Namespace != null);
@@ -64,11 +76,17 @@ namespace App.Inspection
                 : null;
         }
 
-        private static Package CreatePackage(PortableExecutableReference reference, Assembly assembly, string ns)
+        /// <summary>
+        /// Creates a <see cref="Package"/> instance from the executable <paramref name="reference"/> and
+        /// <paramref name="assembly"/>.
+        /// </summary>
+        /// <param name="reference">The executable reference that was loaded.</param>
+        /// <param name="assembly">The assembly contained within the executable reference.</param>
+        private static Package CreatePackage(PortableExecutableReference reference, Assembly assembly)
         {
             var exportedTypes = assembly.GetExportedTypes();
 
-            return new Package(reference.Display!, new Namespace(ns), exportedTypes);
+            return new Package(reference.Display!, exportedTypes);
         }
     }
 }

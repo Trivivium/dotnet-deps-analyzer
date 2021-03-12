@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.IO;
 
 using Microsoft.CodeAnalysis;
 
@@ -10,39 +9,24 @@ namespace App.Inspection
     {
         internal static ProjectInspectionResult Ok(Project project, IReadOnlyCollection<PackageInspectionResult> results)
         {
-            return new ProjectInspectionResult(ProjectInspectionState.Ok, project.Name, TimeSpan.Zero, results);
+            return new ProjectInspectionResult(project.Name, results);
         }
 
         internal static ProjectInspectionResult Ignored(Project project)
         {
-            return new ProjectInspectionResult(ProjectInspectionState.Ignored, project.Name, TimeSpan.Zero, new List<PackageInspectionResult>());
+            return new ProjectInspectionResult(project.Name, new List<PackageInspectionResult>());
         }
 
-        internal static ProjectInspectionResult LoadFailed(FileSystemInfo file)
-        {
-            var name = Path.GetFileName(file.FullName);
-            
-            return new ProjectInspectionResult(ProjectInspectionState.LoadFailed, name, TimeSpan.Zero, new List<PackageInspectionResult>());
-        }
-        
-        internal static ProjectInspectionResult CompilationFailed(Project project)
-        {
-            return new ProjectInspectionResult(ProjectInspectionState.CompilationFailed, project.Name, TimeSpan.Zero, new List<PackageInspectionResult>());
-        }
-        
         public string Name { get; }
         
-        public ProjectInspectionState State { get; }
-        
-        public TimeSpan Elapsed { get; }
+        public TimeSpan Elapsed { get; internal set; }
         
         public IReadOnlyCollection<PackageInspectionResult> Packages { get; }
 
-        internal ProjectInspectionResult(ProjectInspectionState state, string name, TimeSpan elapsed, IReadOnlyCollection<PackageInspectionResult> packages)
+        private ProjectInspectionResult(string name, IReadOnlyCollection<PackageInspectionResult> packages, TimeSpan? elapsed = null)
         {
             Name = name;
-            State = state;
-            Elapsed = elapsed;
+            Elapsed = elapsed ?? TimeSpan.Zero;
             Packages = packages;
         }
     }

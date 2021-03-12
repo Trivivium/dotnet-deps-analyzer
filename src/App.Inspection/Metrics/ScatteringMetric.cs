@@ -4,8 +4,12 @@ using Microsoft.CodeAnalysis;
 
 namespace App.Inspection.Metrics
 {
+    /// <summary>
+    /// Computes the scattering of used package types in the source-files of a project.
+    /// </summary>
     internal sealed class ScatteringMetric : IMetric
     {
+        /// <inheritdoc />
         public IMetricResult Compute(Project project, Compilation compilation, Package package, Registry registry)
         {
             var uniqueLocationsIds = registry.GetReferenceLocationsAcrossSymbols(package)

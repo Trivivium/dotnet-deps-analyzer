@@ -8,9 +8,15 @@ namespace App.Inspection
     {
         private readonly Package _package;
         
+        /// <summary>
+        /// A collection of the results of the metrics that was computed on the package.
+        /// </summary>
         public IReadOnlyCollection<IMetricResult> Metrics { get; }
 
-        public string Name => _package.DisplayName;
+        /// <summary>
+        /// The name of the package.
+        /// </summary>
+        public string Name => _package.Name;
 
         internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult> metrics)
         {

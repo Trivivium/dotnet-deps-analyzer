@@ -1,5 +1,3 @@
-using System;
-
 namespace App.Inspection
 {
     public interface ILogger
@@ -22,12 +20,5 @@ namespace App.Inspection
         /// </summary>
         /// <param name="message">The message to display.</param>
         public void LogError(string message);
-
-        /// <summary>
-        /// Logs an error message and exception to output.
-        /// </summary>
-        /// <param name="exception">The exception is display the contained message and stacktrace of.</param>
-        /// <param name="message">The message to display.</param>
-        public void LogError(Exception exception, string message);
     }
 }

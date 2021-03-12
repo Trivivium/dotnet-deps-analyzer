@@ -4,11 +4,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
+using System.Diagnostics;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
 using System.CommandLine.Rendering.Views;
-using System.Diagnostics;
 
 using App.Logging;
 using App.Rendering;
@@ -37,7 +37,7 @@ namespace App.Commands
         private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
         {
             var terminal = new SystemConsoleTerminal(console);
-            var inspector = new Inspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
+            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
             
             try
             {
@@ -60,7 +60,7 @@ namespace App.Commands
             return 0;
         }
         
-        private static async Task Inspect(ITerminal terminal, Inspector inspector, InspectCommandArgs args)
+        private static async Task Inspect(ITerminal terminal, CSharpInspector inspector, InspectCommandArgs args)
         {
             // TODO: Construct parameters from command line arguments.
             var parameters = InspectionParameters.CreateWithDefaults(
