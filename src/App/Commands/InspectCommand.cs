@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
+using System.CommandLine.Rendering.Views;
 using System.Diagnostics;
 
 using App.Logging;
@@ -44,11 +45,10 @@ namespace App.Commands
                 
                 sw.Restart();
 
-                var results = await Inspect(inspector, args);
+                await Inspect(terminal, inspector, args);
                 
-                WriteResults(terminal, results);
-                
-                terminal.WriteLine($"Elapsed: {sw.Elapsed:g}");
+                terminal.WriteLine("\n");
+                terminal.WriteLine($"Total time elapsed: {sw.Elapsed.Hours}h {sw.Elapsed.Minutes}m {sw.Elapsed.Seconds}s");
             }
             catch (InspectionException exception)
             {
@@ -60,7 +60,7 @@ namespace App.Commands
             return 0;
         }
         
-        private static async Task<InspectionResult> Inspect(Inspector inspector, InspectCommandArgs args)
+        private static async Task Inspect(ITerminal terminal, Inspector inspector, InspectCommandArgs args)
         {
             // TODO: Construct parameters from command line arguments.
             var parameters = InspectionParameters.CreateWithDefaults(
@@ -69,24 +69,33 @@ namespace App.Commands
                 Enumerable.Empty<string>()
             );
             
-            return await inspector.InspectAsync(args.Path, parameters, CancellationToken.None);
-        }
-
-        private static void WriteResults(ITerminal terminal, InspectionResult inspection)
-        {
-            if (!inspection.Projects.Any())
-            {
-                terminal.WriteLine("No results available");
-
-                return;
-            }
-            
-            var view = MetricsView.Create(inspection);
             var renderer = new ConsoleRenderer(terminal, OutputMode.PlainText);
 
-            view.Render(renderer, Region.Scrolling);
-        }
 
+            await foreach (var project in inspector.InspectAsync(args.Path, parameters, CancellationToken.None))
+            {
+                var view = new StackLayoutView
+                {
+                    new ContentView("\n"),
+                    new ContentView($"Project: {project.Name} (took: {project.Elapsed.Seconds}s {project.Elapsed.Milliseconds}ms)"),
+                    new ContentView("\n")
+                };
+                
+                if (!project.Packages.Any())
+                {
+                    view.Add(new ContentView("-- No packages found in this project --"));
+                }
+                else
+                {                
+                    view.Add(MetricsTableView.CreateFromResult(project));
+                }
+                
+                view.Add(new ContentView("\n"));
+                
+                view.Render(renderer, Region.Scrolling);
+            }
+        }
+        
         private static IEnumerable<Symbol> CreateArguments()
         {
             yield return new Argument<FileInfo>("path")
@@ -99,12 +108,5 @@ namespace App.Commands
 
             yield return new Option<bool>("--headless", "Disables any any formatting of the console output (e.g., the progress indicator)");
         }
-    }
-
-    internal class InspectionTableRow
-    {
-        public string Package = string.Empty;
-        public string Usage = string.Empty;
-        public string Scatter = string.Empty;
     }
 }

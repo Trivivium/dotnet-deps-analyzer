@@ -60,5 +60,10 @@ namespace App.Inspection
 
             return _namespaces.Any(exclusion => ns.StartsWith(exclusion.Value, StringComparison.OrdinalIgnoreCase));
         }
+
+        public bool IsExcluded(INamespaceSymbol ns)
+        {
+            return IsExcluded(ns.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat));
+        }
     }
 }

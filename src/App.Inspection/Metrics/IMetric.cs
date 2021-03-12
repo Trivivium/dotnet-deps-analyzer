@@ -7,6 +7,6 @@ namespace App.Inspection.Metrics
 {
     internal interface IMetric
     {
-        public IMetricResult Compute(Project project, Compilation compilation, Package package, List<ReferencedSymbol> refs);
+        public IMetricResult Compute(Project project, Compilation compilation, Package package, Registry registry);
     }
 }
