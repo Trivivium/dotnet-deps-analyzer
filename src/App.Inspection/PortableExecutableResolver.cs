@@ -8,14 +8,14 @@ namespace App.Inspection
 {
     /// <summary>
     /// Resolves external packages from executable references of a project.
-    /// See <see cref="PackageLoadContext"/> for more details.
+    /// See <see cref="PortableExecutableLoadContext"/> for more details.
     /// </summary>
-    internal class PackageResolver
+    internal class PortableExecutableResolver
     {
-        private readonly PackageLoadContext _context;
+        private readonly PortableExecutableLoadContext _context;
         private readonly ILogger _logger;
 
-        public PackageResolver(PackageLoadContext context, ILogger logger)
+        public PortableExecutableResolver(PortableExecutableLoadContext context, ILogger logger)
         {
             _context = context;
             _logger = logger;
@@ -26,9 +26,9 @@ namespace App.Inspection
         /// filtered them by the excluded namespaces.
         /// </summary>
         /// <param name="exclusions">A collection of namespaces excluded from the analysis.</param>
-        public IEnumerable<Package> GetPackages(NamespaceExclusionList exclusions)
+        public IEnumerable<PortableExecutableWrapper> GetExecutables(NamespaceExclusionList exclusions)
         {
-            var packages = new List<Package>();
+            var wrappers = new List<PortableExecutableWrapper>();
             
             foreach (var reference in _context.GetExecutableReferences())
             {
@@ -58,10 +58,10 @@ namespace App.Inspection
                     continue;
                 }
 
-                packages.Add(CreatePackage(reference, assembly));
+                wrappers.Add(CreateWrapper(reference, assembly));
             }
 
-            return packages;
+            return wrappers;
         }
 
         /// <summary>
@@ -82,11 +82,9 @@ namespace App.Inspection
         /// </summary>
         /// <param name="reference">The executable reference that was loaded.</param>
         /// <param name="assembly">The assembly contained within the executable reference.</param>
-        private static Package CreatePackage(MetadataReference reference, Assembly assembly)
+        private static PortableExecutableWrapper CreateWrapper(MetadataReference reference, Assembly assembly)
         {
-            var exportedTypes = assembly.GetExportedTypes();
-
-            return new Package(reference.Display!, exportedTypes);
+            return new PortableExecutableWrapper(reference.Display!, assembly.GetExportedTypes());
         }
     }
 }

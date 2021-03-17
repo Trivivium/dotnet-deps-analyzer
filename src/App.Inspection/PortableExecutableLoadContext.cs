@@ -10,13 +10,13 @@ namespace App.Inspection
     /// <summary>
     /// Loads executable references of a project.
     /// </summary>
-    internal class PackageLoadContext : IDisposable
+    internal class PortableExecutableLoadContext : IDisposable
     {
         private readonly ILogger _logger;
         private readonly List<PortableExecutableReference> _references;
         private readonly MetadataLoadContext _context;
 
-        public PackageLoadContext(Project project, ILogger logger)
+        public PortableExecutableLoadContext(Project project, ILogger logger)
         {
             _logger = logger;
             _references = project.MetadataReferences
@@ -51,12 +51,12 @@ namespace App.Inspection
         }
         
         /// <summary>
-        /// Gets an instance of a <see cref="PackageResolver"/> capable of loading and filtering
+        /// Gets an instance of a <see cref="PortableExecutableResolver"/> capable of loading and filtering
         /// executable references into <see cref="Package"/> instances.
         /// </summary>
-        public PackageResolver GetResolver()
+        public PortableExecutableResolver GetResolver()
         {
-            return new PackageResolver(this, _logger);
+            return new PortableExecutableResolver(this, _logger);
         }
 
         public void Dispose()

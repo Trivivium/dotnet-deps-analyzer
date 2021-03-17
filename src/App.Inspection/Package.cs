@@ -1,7 +1,4 @@
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 
 namespace App.Inspection
 {
@@ -9,30 +6,20 @@ namespace App.Inspection
     public class Package
     {
         /// <summary>
-        /// An absolute path to the DLL file the package was resolved from.
+        /// The portable executable (DLL) file on disk where exported types of the package
+        /// is loaded.
         /// </summary>
-        public readonly string FilePath;
-        
-        /// <summary>
-        /// A collection of types publicly available in the corresponding assembly of the
-        /// package.
-        /// </summary>
-        public readonly ICollection<Type> ExportedTypes;
-
-        /// <summary>
-        /// The number of public types in the assembly.
-        /// </summary>
-        public int ExportedTypesCount => ExportedTypes.Count;
+        internal readonly PortableExecutableWrapper Executable;
 
         /// <summary>
         /// The name of the package.
         /// </summary>
-        public string Name => Path.GetFileNameWithoutExtension(FilePath);
+        public string Name;
         
-        public Package(string filePath, ICollection<Type> exportedTypes)
+        internal Package(string name, PortableExecutableWrapper executable)
         {
-            FilePath = filePath;
-            ExportedTypes = exportedTypes;
+            Name = name;
+            Executable = executable;
         }
     }
 }

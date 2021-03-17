@@ -174,32 +174,36 @@ namespace App.Inspection
             }
 
             var exclusions = NamespaceExclusionList.CreateFromParameters(parameters, project);
-            var memberLookupTable = await GetMemberAccessLookupTable(compilation, exclusions, ct);
 
+            var packageGraph = await GetPackageDependencyGraph(project, exclusions, ct);
+            var memberLookupTable = await GetMemberAccessLookupTable(compilation, exclusions, ct);
+            
             var registry = new Registry();
             var documents = project.Documents.ToImmutableHashSet();
 
             var results = new List<PackageInspectionResult>();
             
-            using (var packageLoadContext = new PackageLoadContext(project, _logger))
+            using (var portableExecutableLoadContext = new PortableExecutableLoadContext(project, _logger))
             {
-                var resolver = packageLoadContext.GetResolver();
+                var resolver = portableExecutableLoadContext.GetResolver();
             
-                foreach (var package in resolver.GetPackages(exclusions))
+                foreach (var portableExecutable in resolver.GetExecutables(exclusions))
                 {
+                    var package = ResolvePackage(portableExecutable, packageGraph);
+                    
                     registry.AddPackage(package);
                 
-                    foreach (var type in package.ExportedTypes)
+                    foreach (var type in portableExecutable.ExportedTypes)
                     {
                         var compilationType = GetCompilationType(compilation, type);
-
+            
                         if (compilationType is null)
                         {
                             continue;
                         }
-
+            
                         var isAdded = await AddConstructorReferences(project.Solution, documents, package, registry, compilationType, ct);
-
+            
                         if (isAdded)
                         {
                             await AddMemberReferences(project.Solution, documents, package, registry, compilationType, memberLookupTable, ct);
@@ -211,6 +215,21 @@ namespace App.Inspection
             }
             
             return ProjectInspectionResult.Ok(project, results);
+        }
+
+
+        private Task<object> GetPackageDependencyGraph(Project project, NamespaceExclusionList exclusions, CancellationToken ct)
+        {
+            _logger.LogVerbose($"Resolving dependency graph for project: {project.Name}");
+
+            return Task.FromResult(new object());
+        }
+        
+        private Package ResolvePackage(PortableExecutableWrapper portableExecutable, object packageGraph)
+        {
+            var name = Path.GetFileNameWithoutExtension(portableExecutable.Filepath);   // TODO: Resolve the package name from the package graph.
+
+            return new Package(name, portableExecutable);
         }
 
         /// <summary>
