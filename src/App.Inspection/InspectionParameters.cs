@@ -10,7 +10,9 @@ namespace App.Inspection
     {
         private static readonly string[] _defaultNamespaceExclusions = {
             "System.", 
-            "Microsoft."
+            "Microsoft.",
+            "Microsoft.CSharp",
+            "NETStandard.Library"
         };
 
         /// <summary>

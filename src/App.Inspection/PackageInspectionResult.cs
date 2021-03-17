@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 
 using App.Inspection.Metrics;
+using App.Inspection.Packages;
 
 namespace App.Inspection
 {

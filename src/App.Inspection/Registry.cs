@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.FindSymbols;
 
+using App.Inspection.Packages;
+
 namespace App.Inspection
 {
     internal class Registry
@@ -21,7 +23,7 @@ namespace App.Inspection
         /// Adds a <paramref name="package"/> to the registry.
         /// </summary>
         /// <param name="package">The package to group usage of members by.</param>
-        public void AddPackage(Package package)
+        public void AddPackage(PackageExecutableLoaded package)
         {
             _items.Add(package, new Dictionary<ISymbol, HashSet<ReferenceLocation>>(_comparer));
         }
@@ -33,7 +35,7 @@ namespace App.Inspection
         /// </summary>
         /// <param name="package">The package to assign the symbols to.</param>
         /// <param name="symbols">The collection of symbols to add.</param>
-        public void AddPackageSymbols(Package package, IEnumerable<ReferencedSymbol> symbols)
+        public void AddPackageSymbols(PackageExecutableLoaded package, IEnumerable<ReferencedSymbol> symbols)
         {
             if (!_items.ContainsKey(package))
             {

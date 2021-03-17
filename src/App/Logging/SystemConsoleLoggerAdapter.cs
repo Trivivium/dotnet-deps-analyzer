@@ -26,7 +26,13 @@ namespace App.Logging
         {
             _terminal.Out.WriteLine($"[INFO] {message}");
         }
-        
+
+        /// <inheritdoc cref="ILogger.LogWarning(string)"/>
+        public void LogWarning(string message)
+        {
+            _terminal.Out.WriteLine($"[WARN] {message}");
+        }
+
         /// <inheritdoc cref="ILogger.LogVerbose(string)"/>
         public void LogVerbose(string message)
         {
