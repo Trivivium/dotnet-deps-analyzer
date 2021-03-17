@@ -79,9 +79,9 @@ namespace App.Rendering
         
         private sealed class MetricsTableLine
         {
-            public string Package;
-            public float? Usage;
-            public float? Scatter;
+            public readonly string Package;
+            public readonly float? Usage;
+            public readonly float? Scatter;
 
             public MetricsTableLine(string package, float? usage, float? scatter)
             {

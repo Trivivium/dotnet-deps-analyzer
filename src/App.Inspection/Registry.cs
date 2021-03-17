@@ -67,16 +67,6 @@ namespace App.Inspection
         }
 
         /// <summary>
-        /// Gets a mapping of <paramref name="package"/> members (symbols) to the locations in
-        /// a project's source-files where it is used.
-        /// </summary>
-        /// <param name="package">The package to filter by.</param>
-        public Dictionary<ISymbol, HashSet<ReferenceLocation>> Get(Package package)
-        {
-            return _items[package];
-        }
-
-        /// <summary>
         /// Gets a collection of locations in the project's source-files, where a
         /// member of the specified <paramref name="package"/> is used.
         /// </summary>

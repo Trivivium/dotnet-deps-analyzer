@@ -15,4 +15,8 @@
     <ProjectReference Include="..\App.Inspection\App.Inspection.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="Rendering\Extensions" />
+  </ItemGroup>
+
 </Project>

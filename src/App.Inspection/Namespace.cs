@@ -1,28 +1,16 @@
 using System;
 using System.Diagnostics;
 
-using Microsoft.CodeAnalysis;
-
 namespace App.Inspection
 {
     [DebuggerDisplay("{Value,nq}")]
     public readonly struct Namespace : IEquatable<Namespace>
     {
-        internal static Namespace FromSymbol(INamespaceSymbol symbol)
-        {
-            return new Namespace(symbol.ToDisplayString(SymbolDisplayFormat.CSharpErrorMessageFormat));
-        }
-        
         public readonly string Value;
 
         internal Namespace(string value)
         {
             Value = value;
-        }
-
-        internal bool IsRootNamespaceOf(Namespace ns)
-        {
-            return ns.Value.StartsWith(Value, StringComparison.InvariantCultureIgnoreCase);
         }
         
         public bool Equals(Namespace other)
@@ -38,6 +26,16 @@ namespace App.Inspection
         public override int GetHashCode()
         {
             return Value.GetHashCode();
+        }
+
+        public static bool operator ==(Namespace left, Namespace right)
+        {
+            return left.Equals(right);
+        }
+
+        public static bool operator !=(Namespace left, Namespace right)
+        {
+            return !(left == right);
         }
     }
 }

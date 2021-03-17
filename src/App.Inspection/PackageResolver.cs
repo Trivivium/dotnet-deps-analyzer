@@ -82,7 +82,7 @@ namespace App.Inspection
         /// </summary>
         /// <param name="reference">The executable reference that was loaded.</param>
         /// <param name="assembly">The assembly contained within the executable reference.</param>
-        private static Package CreatePackage(PortableExecutableReference reference, Assembly assembly)
+        private static Package CreatePackage(MetadataReference reference, Assembly assembly)
         {
             var exportedTypes = assembly.GetExportedTypes();
 

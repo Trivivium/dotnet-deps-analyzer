@@ -41,19 +41,5 @@ namespace App.Logging
         {
             _terminal.Error.WriteLine($"[ERR] {message}");
         }
-
-        /// <inheritdoc cref="ILogger.LogError(Exception, string)"/>
-        public void LogError(Exception exception, string message)
-        {
-            _terminal.Error.WriteLine($"[ERR] {message}");
-            _terminal.Error.WriteLine($"[Exception] {exception.Message}");
-            
-            var stacktrace = exception.StackTrace;
-
-            if (stacktrace is not null)
-            {
-                _terminal.Error.WriteLine(stacktrace);
-            }
-        }
     }
 }
