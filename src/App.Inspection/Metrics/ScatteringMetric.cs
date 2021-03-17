@@ -2,6 +2,8 @@ using System.Linq;
 
 using Microsoft.CodeAnalysis;
 
+using App.Inspection.Packages;
+
 namespace App.Inspection.Metrics
 {
     /// <summary>
@@ -10,7 +12,7 @@ namespace App.Inspection.Metrics
     internal sealed class ScatteringMetric : IMetric
     {
         /// <inheritdoc />
-        public IMetricResult Compute(Project project, Compilation compilation, Package package, Registry registry)
+        public IMetricResult Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry)
         {
             var uniqueLocationsIds = registry.GetReferenceLocationsAcrossSymbols(package)
                 .Select(r => r.Document.Id)

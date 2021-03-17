@@ -6,7 +6,6 @@ using System.Collections.Generic;
 using Microsoft.CodeAnalysis.MSBuild;
 
 using App.Inspection.Metrics;
-using App.Inspection.Extensions;
 
 namespace App.Inspection
 {

@@ -1,3 +1,5 @@
+using App.Inspection.Packages;
+
 using Microsoft.CodeAnalysis;
 
 namespace App.Inspection.Metrics
@@ -8,9 +10,9 @@ namespace App.Inspection.Metrics
     internal sealed class UsageMetric : IMetric
     {
         /// <inheritdoc />
-        public IMetricResult Compute(Project project, Compilation compilation, Package package, Registry registry)
+        public IMetricResult Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry)
         {
-            var percentage = (float) registry.GetUsedTypeCount(package) / package.ExportedTypesCount * 100;
+            var percentage = (float) registry.GetUsedTypeCount(package) / package.Executable.ExportedTypesCount * 100;
             
             return new UsageMetricResult(percentage);
         }

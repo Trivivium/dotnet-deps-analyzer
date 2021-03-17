@@ -26,7 +26,13 @@ namespace App.Logging
         {
             _terminal.Out.WriteLine($"[INFO] {message}");
         }
-        
+
+        /// <inheritdoc cref="ILogger.LogWarning(string)"/>
+        public void LogWarning(string message)
+        {
+            _terminal.Out.WriteLine($"[WARN] {message}");
+        }
+
         /// <inheritdoc cref="ILogger.LogVerbose(string)"/>
         public void LogVerbose(string message)
         {
@@ -40,20 +46,6 @@ namespace App.Logging
         public void LogError(string message)
         {
             _terminal.Error.WriteLine($"[ERR] {message}");
-        }
-
-        /// <inheritdoc cref="ILogger.LogError(Exception, string)"/>
-        public void LogError(Exception exception, string message)
-        {
-            _terminal.Error.WriteLine($"[ERR] {message}");
-            _terminal.Error.WriteLine($"[Exception] {exception.Message}");
-            
-            var stacktrace = exception.StackTrace;
-
-            if (stacktrace is not null)
-            {
-                _terminal.Error.WriteLine(stacktrace);
-            }
         }
     }
 }

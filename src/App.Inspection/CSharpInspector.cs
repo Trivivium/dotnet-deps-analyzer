@@ -11,13 +11,14 @@ using System.Runtime.CompilerServices;
 using Microsoft.Build.Locator;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.MSBuild;
+using Microsoft.CodeAnalysis.FindSymbols;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 using App.Inspection.Metrics;
+using App.Inspection.Packages;
 using App.Inspection.Extensions;
 using App.Inspection.Exceptions;
-
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.FindSymbols;
+using App.Inspection.Executables;
 
 namespace App.Inspection
 {
@@ -173,33 +174,36 @@ namespace App.Inspection
                 throw new InspectionException($"Failed to compile project: {project.Name}");
             }
 
-            var exclusions = NamespaceExclusionList.CreateFromParameters(parameters, project);
-            var memberLookupTable = await GetMemberAccessLookupTable(compilation, exclusions, ct);
-
             var registry = new Registry();
-            var documents = project.Documents.ToImmutableHashSet();
-
+            var resolver = new PackageResolver(_logger);
             var results = new List<PackageInspectionResult>();
             
-            using (var packageLoadContext = new PackageLoadContext(project, _logger))
-            {
-                var resolver = packageLoadContext.GetResolver();
+            var documents = project.Documents.ToImmutableHashSet();
+            var exclusions = NamespaceExclusionList.CreateFromParameters(parameters, project);
+
+            await resolver.LoadPackageDependencyGraph(project, exclusions, ct);
             
-                foreach (var package in resolver.GetPackages(exclusions))
+            var memberLookupTable = await GetMemberAccessLookupTable(compilation, exclusions, ct);
+            
+            using (var portableExecutableLoadContext = new PortableExecutableLoadContext(project, _logger))
+            {
+                foreach (var executable in portableExecutableLoadContext.GetExecutables(exclusions))
                 {
+                    var package = resolver.CreatePackage(executable);
+                    
                     registry.AddPackage(package);
                 
-                    foreach (var type in package.ExportedTypes)
+                    foreach (var type in executable.ExportedTypes)
                     {
                         var compilationType = GetCompilationType(compilation, type);
-
+            
                         if (compilationType is null)
                         {
                             continue;
                         }
-
+            
                         var isAdded = await AddConstructorReferences(project.Solution, documents, package, registry, compilationType, ct);
-
+            
                         if (isAdded)
                         {
                             await AddMemberReferences(project.Solution, documents, package, registry, compilationType, memberLookupTable, ct);
@@ -278,7 +282,7 @@ namespace App.Inspection
         /// <param name="compilationType">The corresponding Roslyn type of a publicly exported type in a referenced executable.</param>
         /// <param name="ct">A cancellation token.</param>
         /// <returns></returns>
-        private static async Task<bool> AddConstructorReferences(Solution solution, IImmutableSet<Document> documents, Package package, Registry registry, ISymbol compilationType, CancellationToken ct)
+        private static async Task<bool> AddConstructorReferences(Solution solution, IImmutableSet<Document> documents, PackageExecutableLoaded package, Registry registry, ISymbol compilationType, CancellationToken ct)
         {
             var refs = await SymbolFinder.FindReferencesAsync(compilationType, solution, documents, ct);
 
@@ -302,7 +306,7 @@ namespace App.Inspection
         /// <param name="compilationType">The corresponding Roslyn type of a publicly exported type in a referenced executable.</param>
         /// <param name="lookup">A lookup table of member accesses symbols.</param>
         /// <param name="ct">A cancellation token.</param>
-        private static async Task AddMemberReferences(Solution solution, IImmutableSet<Document> documents, Package package, Registry registry, ISymbol compilationType, IReadOnlyDictionary<INamespaceSymbol, ICollection<ISymbol>> lookup, CancellationToken ct)
+        private static async Task AddMemberReferences(Solution solution, IImmutableSet<Document> documents, PackageExecutableLoaded package, Registry registry, ISymbol compilationType, IReadOnlyDictionary<INamespaceSymbol, ICollection<ISymbol>> lookup, CancellationToken ct)
         {
             if (lookup.TryGetValue(compilationType.ContainingNamespace, out var members))
             {
@@ -328,7 +332,7 @@ namespace App.Inspection
         /// <param name="package">The package being analyzed.</param>
         /// <param name="metrics">A collection of metrics to compute.</param>
         /// <param name="registry">The registry of information collected from the Roslyn compilation.</param>
-        private static PackageInspectionResult ComputeMetrics(Project project, Compilation compilation, Package package, IList<IMetric> metrics, Registry registry)
+        private static PackageInspectionResult ComputeMetrics(Project project, Compilation compilation, PackageExecutableLoaded package, IList<IMetric> metrics, Registry registry)
         {
             var results = new List<IMetricResult>();
                 
