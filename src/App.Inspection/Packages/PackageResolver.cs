@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -16,6 +17,8 @@ using NuGet.Configuration;
 using App.Inspection.Exceptions;
 using App.Inspection.Executables;
 
+using NuGet.Versioning;
+
 namespace App.Inspection.Packages
 {
     internal sealed class PackageResolver
@@ -24,9 +27,7 @@ namespace App.Inspection.Packages
         
         private readonly ILogger _logger;
         private readonly string _nugetCacheDirectory;
-        
-        private readonly IDictionary<string, PackageReference> _references = new Dictionary<string, PackageReference>(StringComparer.OrdinalIgnoreCase);
-        private readonly IDictionary<PackageReference, Package> _packages = new Dictionary<PackageReference, Package>();
+        private readonly PackageGraphCache _cache = new PackageGraphCache();
 
         public PackageResolver(ILogger logger)
         {
@@ -34,44 +35,24 @@ namespace App.Inspection.Packages
             _nugetCacheDirectory = SettingsUtility.GetGlobalPackagesFolder(Settings.LoadDefaultSettings(null));
         }
 
-        public IEnumerable<Package> GetExplicitPackages()
+        public IEnumerable<NuGetPackage> GetExplicitPackages()
         {
-            foreach (var (_, reference) in _references)
-            {
-                if (!reference.IsExplicit)
-                {
-                    continue;
-                }
-                
-                yield return new Package(PackageReferenceType.Explicit, reference.Name, reference.Version, null);
-            }
+            return _cache.GetExplicitPackages();
         }
         
-        public PackageExecutableLoaded CreatePackage(PortableExecutableWrapper executable)
+        public IPackageWithExecutableLoaded CreatePackage(PortableExecutableWrapper executable)
         {
-            var key = CreateKeyFromExecutable(executable);
+            var name = executable.Name;
+            var version = GetVersionFromFilepath(executable);
             
-            if (!_references.TryGetValue(key, out var reference))
+            if (!_cache.TryGet(version, name, out var package))
             {
-                return new PackageExecutableLoaded(PackageReferenceType.Unreferenced, executable.Name, executable);
-            }
-
-            var parent = GetParentPackage(reference);
-            var type = parent is null
-                ? PackageReferenceType.Explicit
-                : PackageReferenceType.Transient;
-            
-            return new PackageExecutableLoaded(type, reference.Name, reference.Version, executable, parent);
-
-            static string CreateKeyFromExecutable(PortableExecutableWrapper executable)
-            {
-                var name = executable.Name;
-                var version = GetVersionFromFilepath(executable);
-
-                return $"{name}:{version}";
+                return new PackageWithExecutableLoaded(PackageReferenceType.Unknown, version, executable.Name, executable);
             }
             
-            static string GetVersionFromFilepath(PortableExecutableWrapper executable)
+            return new NuGetPackageWithExecutableLoaded(package, executable);
+            
+            static SemanticVersion GetVersionFromFilepath(PortableExecutableWrapper executable)
             {
                 // This is a hack! Sorry future me :(
                 // The path to the DLL of a NuGet package always ends with /lib/<target framework>/<package-id>.dll, so
@@ -80,23 +61,27 @@ namespace App.Inspection.Packages
                 var segments = executable.Filepath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var version = segments[^4];
 
-                return version;
+                return SemanticVersion.Parse(version);
             }
         }
         
-        public async Task LoadPackageDependencyGraph(Project project, NamespaceExclusionList exclusions, CancellationToken ct)
+        public async Task CreatePackageGraph(Project project, NamespaceExclusionList exclusions, CancellationToken ct)
         {
             _logger.LogVerbose($"Resolving package dependency graph for project: {project.Name}");
 
-            var (packages, framework) = await GetExplicitPackageReferences(project, ct);
-
-            foreach (var package in packages)
+            var (references, framework) = await GetExplicitPackageReferences(project, ct);
+            
+            foreach (var reference in references)
             {
+                var package = new NuGetPackage(PackageReferenceType.Explicit, reference.Version, reference.Name, parent: null);
+                
+                _cache.Add(package);
+                
                 try
                 {
-                    AddPackageReference(package);
+                    var subgraph = GetPackageSubgraph(_cache, exclusions, framework, package);
                     
-                    ResolveDependencyGraph(exclusions, framework, package);
+                    package.AddChildren(subgraph);
                 }
                 catch (InvalidOperationException exception)
                 {
@@ -105,7 +90,7 @@ namespace App.Inspection.Packages
             }
         }
 
-        private static async Task<(List<PackageReference> packages, NuGetFramework framework)> GetExplicitPackageReferences(Project project, CancellationToken ct)
+        private static async Task<(List<PackageReference> references, NuGetFramework framework)> GetExplicitPackageReferences(Project project, CancellationToken ct)
         {
             var file = project.FilePath;
 
@@ -116,80 +101,57 @@ namespace App.Inspection.Packages
 
             var content = await File.ReadAllTextAsync(file, ct);
             var document = XDocument.Parse(content);
+            
             var references = document.XPathSelectElements("//PackageReference")
                 .Where(elem => elem.HasAttributes)
-                .Select(elem => PackageReference.FromXElement(elem))
+                .Select(ParseToPackageReference)
                 .ToList();
 
-            var tf = document.XPathSelectElement("//TargetFramework");
-
-            if (tf is null || tf.IsEmpty)
-            {
-                throw new InspectionException($"Unable to determine target framework of project: {project.Name}");
-            }
-            
-            var framework = NuGetFramework.Parse(tf.Value);
+            var framework = ParseTargetFramework(project, document);
 
             return (references, framework);
-        }
-
-        private Package? GetParentPackage(PackageReference reference)
-        {
-            if (reference.Parent is null)
+            
+            static PackageReference ParseToPackageReference(XElement elem)
             {
-                return null;
+                var name = elem.Attribute("Include")?.Value ?? throw new InspectionException("Unable to resolve package name");
+                var version = elem.Attribute("Version")?.Value ?? throw new InspectionException("Unable to resolve package version");
+
+                if (!SemanticVersion.TryParse(version, out var sVersion))
+                {
+                    throw new InspectionException($"Unable to parse the semantic version of package: {name}");
+                }
+
+                return new PackageReference(name, sVersion);
             }
-            
-            if (_packages.TryGetValue(reference, out var package))
+
+            static NuGetFramework ParseTargetFramework(Project project, XNode document)
             {
-                return package;
-            }
+                var tf = document.XPathSelectElement("//TargetFramework");
+
+                if (tf is null || tf.IsEmpty)
+                {
+                    throw new InspectionException($"Unable to determine target framework of project: {project.Name}");
+                }
             
-            package = new Package(PackageReferenceType.Transient, reference.Parent.Name, reference.Parent.Version, GetParentPackage(reference.Parent));
-
-            _packages.Add(reference, package);
-            
-            return package;
-        }
-
-        private void AddPackageReference(PackageReference package)
-        {
-            var key = $"{package.Name}:{package.Version}";
-
-            if (!_references.ContainsKey(key))
-            {
-                _references.Add(key, package);                
+                return NuGetFramework.Parse(tf.Value);
             }
         }
-
-        private void ResolveDependencyGraph(NamespaceExclusionList exclusions, NuGetFramework framework, PackageReference parent, int depth = 0)
+        
+        private List<NuGetPackage>? GetPackageSubgraph(PackageGraphCache cache, NamespaceExclusionList exclusions, NuGetFramework framework, NuGetPackage parent, int depth = 0)
         {
             if (depth > MaxDependencyGraphDepth)
             {
                 throw new InvalidOperationException($"Max recursion depth reached: Exceeded depth of: {MaxDependencyGraphDepth}");
             }
-
-            var file = CreateNuGetSpecFilename(parent, _nugetCacheDirectory);
-
-            if (!File.Exists(file))
+            
+            if (!TryGetCompatibleDependencyGroup(parent, framework, out var group))
             {
-                _logger.LogWarning($"Unable to find NuGet package spec: {file}");
-
-                return;
+                return null;
             }
-            
-            var reader = new NuspecReader(file);
-            
-            var compatibleDependencyGroup = reader
-                .GetDependencyGroups()
-                .FirstOrDefault(group => NuGetFrameworkUtility.IsCompatibleWithFallbackCheck(framework, group.TargetFramework) || group.TargetFramework.IsAgnostic);
 
-            if (compatibleDependencyGroup is null)
-            {
-                return;
-            }
+            var results = new List<NuGetPackage>();
             
-            foreach (var dependency in compatibleDependencyGroup.Packages)
+            foreach (var dependency in group.Packages)
             {
                 var name = dependency.Id;
 
@@ -199,17 +161,49 @@ namespace App.Inspection.Packages
                 }
                 
                 var version = dependency.VersionRange.MinVersion;
-                var package = new PackageReference(name, version, parent);
-                
-                AddPackageReference(package);
-                
-                ResolveDependencyGraph(exclusions, framework, package, depth + 1);
-            }
-        }
 
-        private static string CreateNuGetSpecFilename(PackageReference package, string directory)
+                if (!cache.TryGet(version, name, out var package))
+                {
+                    package = new NuGetPackage(PackageReferenceType.Transient, version, name, parent);
+                    
+                    package.AddChildren(GetPackageSubgraph(cache, exclusions, framework, package, depth + 1));
+                    
+                    cache.Add(package);
+                }
+                
+                results.Add(package);
+            }
+
+            return results;
+        }
+        
+        private bool TryGetCompatibleDependencyGroup(NuGetPackage package, NuGetFramework framework, [NotNullWhen(true)] out PackageDependencyGroup? group)
         {
-            return Path.Combine(directory, package.Name, package.Version.ToString(), $"{package.Name}.nuspec");
+            group = null;
+            
+            var file = CreateNuGetSpecFilename(package);
+
+            try
+            {
+                var reader = new NuspecReader(file);
+
+                group = reader
+                    .GetDependencyGroups()
+                    .FirstOrDefault(g => NuGetFrameworkUtility.IsCompatibleWithFallbackCheck(framework, g.TargetFramework) || g.TargetFramework.IsAgnostic);
+            }
+            catch (FileNotFoundException)
+            {
+                _logger.LogWarning($"Unable to find NuGet package spec: {file}");
+
+                return false;
+            }
+            
+            return group != null;
+        }
+        
+        private string CreateNuGetSpecFilename(NuGetPackage package)
+        {
+            return Path.Combine(_nugetCacheDirectory, package.Name, package.Version.ToString(), $"{package.Name}.nuspec");
         }
     }
 }

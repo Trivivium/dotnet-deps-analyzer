@@ -8,7 +8,7 @@ namespace App.Inspection
 {
     public sealed class PackageInspectionResult
     {
-        private readonly Package _package;
+        private readonly IPackage _package;
         
         /// <summary>
         /// A collection of the results of the metrics that was computed on the package.
@@ -22,9 +22,9 @@ namespace App.Inspection
 
         public string Version => _package?.Version?.ToString() ?? "";
         
-        public string Type => Enum.GetName(typeof(PackageReferenceType), _package.Type) ?? "<unknown>";
+        public string Type => Enum.GetName(typeof(PackageReferenceType), _package.ReferenceType) ?? "<unknown>";
 
-        internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult?> metrics)
+        internal PackageInspectionResult(IPackage package, IReadOnlyCollection<IMetricResult?> metrics)
         {
             _package = package;
             Metrics = metrics;

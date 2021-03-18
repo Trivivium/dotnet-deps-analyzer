@@ -6,9 +6,15 @@ namespace App.Inspection.Metrics
 {
     internal class TransientCountMetric : IMetric
     {
-        public IMetricResult? Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry)
+        public IMetricResult? Compute(Project project, Compilation compilation, IPackageWithExecutableLoaded package, Registry registry)
         {
             return new TransientCountMetricResult(0);
         }
+
+        // private static int Count(Package package)
+        // {
+        //     package.
+        //     
+        // }
     }
 }

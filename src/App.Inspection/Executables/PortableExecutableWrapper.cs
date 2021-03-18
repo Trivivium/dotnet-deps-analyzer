@@ -12,7 +12,7 @@ namespace App.Inspection.Executables
         private readonly MetadataReference _metadata;
         private readonly Assembly _assembly;
 
-        private ICollection<Type>? _exportedTypeCache;
+        private IReadOnlyCollection<Type>? _exportedTypeCache;
 
         /// <summary>
         /// An absolute file path to the location of the executable.
@@ -27,7 +27,7 @@ namespace App.Inspection.Executables
         /// A collection of types publicly available in the corresponding assembly of the
         /// package.
         /// </summary>
-        public ICollection<Type> ExportedTypes
+        public IReadOnlyCollection<Type> ExportedTypes
         {
             get
             {
@@ -39,7 +39,6 @@ namespace App.Inspection.Executables
                 return _exportedTypeCache;
             }
         }
-        
 
         /// <summary>
         /// The number of public types in the assembly.

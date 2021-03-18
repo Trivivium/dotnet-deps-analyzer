@@ -181,7 +181,7 @@ namespace App.Inspection
             var documents = project.Documents.ToImmutableHashSet();
             var exclusions = NamespaceExclusionList.CreateFromParameters(parameters, project);
 
-            await resolver.LoadPackageDependencyGraph(project, exclusions, ct);
+            await resolver.CreatePackageGraph(project, exclusions, ct);
             
             var memberLookupTable = await GetMemberAccessLookupTable(compilation, exclusions, ct);
             
@@ -284,7 +284,7 @@ namespace App.Inspection
         /// <param name="compilationType">The corresponding Roslyn type of a publicly exported type in a referenced executable.</param>
         /// <param name="ct">A cancellation token.</param>
         /// <returns></returns>
-        private static async Task<bool> AddConstructorReferences(Solution solution, IImmutableSet<Document> documents, PackageExecutableLoaded package, Registry registry, ISymbol compilationType, CancellationToken ct)
+        private static async Task<bool> AddConstructorReferences(Solution solution, IImmutableSet<Document> documents, IPackageWithExecutableLoaded package, Registry registry, ISymbol compilationType, CancellationToken ct)
         {
             var refs = await SymbolFinder.FindReferencesAsync(compilationType, solution, documents, ct);
 
@@ -308,7 +308,7 @@ namespace App.Inspection
         /// <param name="compilationType">The corresponding Roslyn type of a publicly exported type in a referenced executable.</param>
         /// <param name="lookup">A lookup table of member accesses symbols.</param>
         /// <param name="ct">A cancellation token.</param>
-        private static async Task AddMemberReferences(Solution solution, IImmutableSet<Document> documents, PackageExecutableLoaded package, Registry registry, ISymbol compilationType, IReadOnlyDictionary<INamespaceSymbol, ICollection<ISymbol>> lookup, CancellationToken ct)
+        private static async Task AddMemberReferences(Solution solution, IImmutableSet<Document> documents, IPackageWithExecutableLoaded package, Registry registry, ISymbol compilationType, IReadOnlyDictionary<INamespaceSymbol, ICollection<ISymbol>> lookup, CancellationToken ct)
         {
             if (lookup.TryGetValue(compilationType.ContainingNamespace, out var members))
             {
@@ -334,7 +334,7 @@ namespace App.Inspection
         /// <param name="package">The package being analyzed.</param>
         /// <param name="metrics">A collection of metrics to compute.</param>
         /// <param name="registry">The registry of information collected from the Roslyn compilation.</param>
-        private static PackageInspectionResult ComputeMetrics(Project project, Compilation compilation, PackageExecutableLoaded package, IList<IMetric> metrics, Registry registry)
+        private static PackageInspectionResult ComputeMetrics(Project project, Compilation compilation, IPackageWithExecutableLoaded package, IList<IMetric> metrics, Registry registry)
         {
             var results = new List<IMetricResult?>();
                 

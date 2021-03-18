@@ -10,12 +10,12 @@ namespace App.Inspection
 {
     internal class Registry
     {
-        private readonly Dictionary<Package, Dictionary<ISymbol, HashSet<ReferenceLocation>>> _items;
+        private readonly Dictionary<IPackage, Dictionary<ISymbol, HashSet<ReferenceLocation>>> _items;
         private readonly IEqualityComparer<ISymbol?> _comparer;
 
         public Registry()
         {
-            _items = new Dictionary<Package, Dictionary<ISymbol, HashSet<ReferenceLocation>>>();
+            _items = new Dictionary<IPackage, Dictionary<ISymbol, HashSet<ReferenceLocation>>>();
             _comparer = SymbolEqualityComparer.Default;
         }
 
@@ -23,7 +23,7 @@ namespace App.Inspection
         /// Adds a <paramref name="package"/> to the registry.
         /// </summary>
         /// <param name="package">The package to group usage of members by.</param>
-        public void AddPackage(PackageExecutableLoaded package)
+        public void AddPackage(IPackageWithExecutableLoaded package)
         {
             _items.Add(package, new Dictionary<ISymbol, HashSet<ReferenceLocation>>(_comparer));
         }
@@ -35,7 +35,7 @@ namespace App.Inspection
         /// </summary>
         /// <param name="package">The package to assign the symbols to.</param>
         /// <param name="symbols">The collection of symbols to add.</param>
-        public void AddPackageSymbols(PackageExecutableLoaded package, IEnumerable<ReferencedSymbol> symbols)
+        public void AddPackageSymbols(IPackageWithExecutableLoaded package, IEnumerable<ReferencedSymbol> symbols)
         {
             if (!_items.ContainsKey(package))
             {
@@ -73,7 +73,7 @@ namespace App.Inspection
         /// member of the specified <paramref name="package"/> is used.
         /// </summary>
         /// <param name="package">The package to filter by.</param>
-        public IEnumerable<ReferenceLocation> GetReferenceLocationsAcrossSymbols(Package package)
+        public IEnumerable<ReferenceLocation> GetReferenceLocationsAcrossSymbols(IPackage package)
         {
             return _items[package].SelectMany(symbol => symbol.Value);
         }
@@ -82,7 +82,7 @@ namespace App.Inspection
         /// Gets the number of members used from the specified <paramref name="package"/>.
         /// </summary>
         /// <param name="package">The package to filter by.</param>
-        public int GetUsedTypeCount(Package package)
+        public int GetUsedTypeCount(IPackage package)
         {
             return _items[package].Count;
         }
