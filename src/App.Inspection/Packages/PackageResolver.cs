@@ -36,11 +36,11 @@ namespace App.Inspection.Packages
         
         public PackageExecutableLoaded CreatePackage(PortableExecutableWrapper executable)
         {
-            var key = CreateKeyFromExecutable(executable, _nugetCacheDirectory);
+            var key = CreateKeyFromExecutable(executable);
             
             if (!_references.TryGetValue(key, out var reference))
             {
-                return new PackageExecutableLoaded(PackageReferenceType.Unreferenced, key, executable);
+                return new PackageExecutableLoaded(PackageReferenceType.Unreferenced, executable.Name, executable);
             }
 
             var parent = GetParentPackage(reference);
@@ -50,27 +50,24 @@ namespace App.Inspection.Packages
             
             return new PackageExecutableLoaded(type, reference.Name, reference.Version, executable, parent);
 
-            static string CreateKeyFromExecutable(PortableExecutableWrapper executable, string nugetCacheDirectory)
+            static string CreateKeyFromExecutable(PortableExecutableWrapper executable)
             {
                 var name = executable.Name;
-                var version = GetVersionFromFilepath(executable, nugetCacheDirectory);
+                var version = GetVersionFromFilepath(executable);
 
                 return $"{name}:{version}";
             }
             
-            static string GetVersionFromFilepath(PortableExecutableWrapper executable, string nugetCacheDirectory)
+            static string GetVersionFromFilepath(PortableExecutableWrapper executable)
             {
-                var prefix = Path.Combine(nugetCacheDirectory, executable.Name);
-                var reduced = executable.Filepath.Replace(prefix, string.Empty, StringComparison.InvariantCultureIgnoreCase).Trim(Path.DirectorySeparatorChar);
+                // This is a hack! Sorry future me :(
+                // The path to the DLL of a NuGet package always ends with /lib/<target framework>/<package-id>.dll, so
+                // if we split on directory separators and take the 4th last segment that should always be the
+                // version... assuming the NuGet package structure remains stable.
+                var segments = executable.Filepath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                var version = segments[^4];
 
-                var offset = reduced.IndexOf(Path.DirectorySeparatorChar);
-
-                if (offset > 0 && offset < reduced.Length)
-                {
-                    return reduced.Substring(0, offset);
-                }
-
-                return string.Empty;
+                return version;
             }
         }
         
