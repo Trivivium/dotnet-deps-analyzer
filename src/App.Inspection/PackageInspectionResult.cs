@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 using App.Inspection.Metrics;
@@ -18,6 +19,10 @@ namespace App.Inspection
         /// The name of the package.
         /// </summary>
         public string Name => _package.Name;
+
+        public string Version => _package?.Version?.ToString() ?? "";
+        
+        public string Type => Enum.GetName(typeof(PackageReferenceType), _package.Type) ?? "<unknown>";
 
         internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult?> metrics)
         {

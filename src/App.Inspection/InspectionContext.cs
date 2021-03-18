@@ -14,7 +14,8 @@ namespace App.Inspection
         private readonly IDictionary<string, Func<IMetric>> _factories = new Dictionary<string, Func<IMetric>>
         {
             { "USAGE",      () => new UsageMetric() },
-            { "SCATTERING", () => new ScatteringMetric() }
+            { "SCATTERING", () => new ScatteringMetric() },
+            { "TRANSIENT_COUNT", () => new TransientCountMetric() }
         };
         
         public readonly FileSystemInfo File;

@@ -30,9 +30,19 @@ namespace App.Rendering
                 Items = GetItems(result)
             };
 
-            table.AddColumn(line => 
-                line.Package.PadRight(35),
+            table.AddColumn(
+                line => line.Package.PadRight(35),
                 new ContentView("Package".PadRight(35))
+            );
+            
+            table.AddColumn(
+                line => line.Version.PadLeft(7),
+                new ContentView("Version")
+            );
+            
+            table.AddColumn(
+                line => line.PackageType,
+                new ContentView("Type")
             );
             
             table.AddColumn(
@@ -43,6 +53,11 @@ namespace App.Rendering
             table.AddColumn(
                 line => formatter.Format(line.Scatter),
                 new ContentView("Scatter (%)".PadLeft(12))
+            );
+            
+            table.AddColumn(
+                line => line.TransientCount.ToString().PadLeft(16),
+                new ContentView("# of Dependencies")
             );
             
             view.Add(table);
@@ -61,6 +76,7 @@ namespace App.Rendering
             {
                 float? usageValue = null;
                 float? scatterValue = null;
+                int transientCount = 0;
 
                 foreach (var metric in package.Metrics)
                 {
@@ -69,9 +85,20 @@ namespace App.Rendering
 
                     if (metric is ScatteringMetricResult scatter)
                         scatterValue = scatter.Percentage;
+
+                    if (metric is TransientCountMetricResult transients)
+                        transientCount = transients.Count;
                 }
-                
-                items.Add(new MetricsTableLine(package.Name, usageValue, scatterValue));
+
+                items.Add(new MetricsTableLine
+                {
+                    Package = package.Name,
+                    PackageType = package.Type,
+                    Version = package.Version,
+                    Usage = usageValue,
+                    Scatter = scatterValue,
+                    TransientCount = transientCount
+                });
             }
             
             return items;
@@ -79,16 +106,14 @@ namespace App.Rendering
         
         private sealed class MetricsTableLine
         {
-            public readonly string Package;
-            public readonly float? Usage;
-            public readonly float? Scatter;
-
-            public MetricsTableLine(string package, float? usage, float? scatter)
-            {
-                Package = package;
-                Usage = usage;
-                Scatter = scatter;
-            }
+            #nullable disable warnings
+            
+            public string Package { get; set; }
+            public string PackageType { get; set; }
+            public string Version { get; set; }
+            public float? Usage { get; set; }
+            public float? Scatter { get; set; }
+            public int TransientCount { get; set; }
         }
     }
 }
