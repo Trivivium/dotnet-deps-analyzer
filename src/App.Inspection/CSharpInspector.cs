@@ -47,13 +47,11 @@ namespace App.Inspection
         {
             MSBuildLocator.RegisterDefaults();
             
-            _logger.LogInformation("Workspace: Initializing");
+            _logger.LogInformation("Initializing");
             
             using(var workspace = MSBuildWorkspace.Create())
             {
                 workspace.LoadMetadataForReferencedProjects = true;
-                
-                _logger.LogInformation("Workspace: Done");
                 
                 var context = new InspectionContext(file, workspace, parameters);
                 var metrics = context.CreateMetricInstances(context.Parameters).ToList();
@@ -88,8 +86,6 @@ namespace App.Inspection
         /// <param name="ct">A cancellation token.</param>
         private async Task<ProjectInspectionResult> InspectProject(InspectionContext context, IList<IMetric> metrics, CancellationToken ct)
         {
-            _logger.LogInformation("Project: initializing");
-            
             var project = await context.Workspace.OpenProjectAsync(context.File.FullName, progress: null, ct);
             
             if (project is null)
@@ -99,7 +95,7 @@ namespace App.Inspection
                 throw new InspectionException("Failed to load the project");
             }
             
-            _logger.LogInformation("Project: Done");
+            _logger.LogInformation("Done");
 
             var sw = Stopwatch.StartNew();
                 
@@ -120,8 +116,6 @@ namespace App.Inspection
         /// <param name="ct">A cancellation token.</param>
         private async IAsyncEnumerable<ProjectInspectionResult> InspectSolution(InspectionContext context, IList<IMetric> metrics, [EnumeratorCancellation] CancellationToken ct)
         {
-            _logger.LogInformation("Solution: Initializing");
-            
             var solution = await context.Workspace.OpenSolutionAsync(context.File.FullName, progress: null, ct);
 
             if (solution is null)
@@ -131,7 +125,7 @@ namespace App.Inspection
                 throw new InspectionException("Failed to load the solution");
             }
             
-            _logger.LogInformation("Solution: Done");
+            _logger.LogInformation("Done");
 
             var sw = new Stopwatch();
             
@@ -346,14 +340,18 @@ namespace App.Inspection
             return new PackageInspectionResult(package, results);
         }
 
+        /// <summary>
+        /// Adds any packages discovered from the NuGet package graph that was not part of any
+        /// references in the code.
+        /// </summary>
         private static IEnumerable<PackageInspectionResult> AddMissingExplicitPackages(PackageResolver resolver, NamespaceExclusionList exclusions, List<PackageInspectionResult> results)
         {
-            foreach (var package in resolver.GetExplicitPackages())
+            foreach (var package in resolver.GetPackages())
             {
                 if (exclusions.IsExcluded(package.Name))
                     continue;
 
-                if (results.Any(result => result.Name == package.Name))
+                if (results.Any(result => result.Package.Equals(package)))
                     continue;
 
                 yield return new PackageInspectionResult(package, new List<IMetricResult?>());

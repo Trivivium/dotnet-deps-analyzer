@@ -35,9 +35,9 @@ namespace App.Inspection.Packages
             _nugetCacheDirectory = SettingsUtility.GetGlobalPackagesFolder(Settings.LoadDefaultSettings(null));
         }
 
-        public IEnumerable<NuGetPackage> GetExplicitPackages()
+        public IEnumerable<NuGetPackage> GetPackages()
         {
-            return _cache.GetExplicitPackages();
+            return _cache.GetPackages();
         }
         
         public IPackageWithExecutableLoaded CreatePackage(PortableExecutableWrapper executable)
@@ -45,7 +45,7 @@ namespace App.Inspection.Packages
             var name = executable.Name;
             var version = GetVersionFromFilepath(executable);
             
-            if (!_cache.TryGet(version, name, out var package))
+            if (!_cache.TryGetFirst(version, name, out var package))
             {
                 return new PackageWithExecutableLoaded(PackageReferenceType.Unknown, version, executable.Name, executable);
             }
@@ -162,13 +162,17 @@ namespace App.Inspection.Packages
                 
                 var version = dependency.VersionRange.MinVersion;
 
-                if (!cache.TryGet(version, name, out var package))
+                if (!cache.TryGetFirst(version, name, out var package))
                 {
                     package = new NuGetPackage(PackageReferenceType.Transient, version, name, parent);
                     
                     package.AddChildren(GetPackageSubgraph(cache, exclusions, framework, package, depth + 1));
                     
                     cache.Add(package);
+                }
+                else
+                {
+                    package.AddParent(parent);
                 }
                 
                 results.Add(package);

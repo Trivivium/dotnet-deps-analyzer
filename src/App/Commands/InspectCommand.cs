@@ -47,8 +47,7 @@ namespace App.Commands
 
                 await Inspect(terminal, inspector, args);
                 
-                terminal.WriteLine("\n");
-                terminal.WriteLine($"Total time elapsed: {sw.Elapsed.Hours}h {sw.Elapsed.Minutes}m {sw.Elapsed.Seconds}s");
+                terminal.WriteLine($"\nTotal time elapsed: {sw.Elapsed.Hours}h {sw.Elapsed.Minutes}m {sw.Elapsed.Seconds}s");
             }
             catch (InspectionException exception)
             {
@@ -80,13 +79,16 @@ namespace App.Commands
                     new ContentView("\n")
                 };
                 
-                if (!project.Packages.Any())
+                if (!project.PackageResults.Any())
                 {
                     view.Add(new ContentView("-- No packages available --"));
                 }
                 else
-                {                
-                    view.Add(MetricsTableView.CreateFromResult(project));
+                {
+                    //var filter = new NoopTableFilter();
+                    var filter = new HasMetricValuesTableFilter(project);
+                    
+                    view.Add(MetricsTableView.CreateFromResult(project, filter));
                 }
                 
                 view.Add(new ContentView("\n"));

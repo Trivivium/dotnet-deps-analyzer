@@ -1,33 +1,39 @@
-using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 
 using App.Inspection.Metrics;
 using App.Inspection.Packages;
 
 namespace App.Inspection
 {
+    [DebuggerDisplay("{GetDebugView(),nq}")]
     public sealed class PackageInspectionResult
     {
-        private readonly IPackage _package;
+        /// <summary>
+        /// The package the metrics are calculated for.
+        /// </summary>
+        public IPackage Package { get; }
         
         /// <summary>
         /// A collection of the results of the metrics that was computed on the package.
         /// </summary>
         public IReadOnlyCollection<IMetricResult?> Metrics { get; }
-
-        /// <summary>
-        /// The name of the package.
-        /// </summary>
-        public string Name => _package.Name;
-
-        public string Version => _package?.Version?.ToString() ?? "";
         
-        public string Type => Enum.GetName(typeof(PackageReferenceType), _package.ReferenceType) ?? "<unknown>";
-
         internal PackageInspectionResult(IPackage package, IReadOnlyCollection<IMetricResult?> metrics)
         {
-            _package = package;
+            Package = package;
             Metrics = metrics;
+        }
+
+        public void Deconstruct(out IPackage package, out IReadOnlyCollection<IMetricResult?> metrics)
+        {
+            package = Package;
+            metrics = Metrics;
+        }
+
+        private string GetDebugView()
+        {
+            return $"Name: {Package.Name} - ID: {Package.ID}";
         }
     }
 }
