@@ -334,7 +334,7 @@ namespace App.Inspection
         /// <param name="registry">The registry of information collected from the Roslyn compilation.</param>
         private static PackageInspectionResult ComputeMetrics(Project project, Compilation compilation, PackageExecutableLoaded package, IList<IMetric> metrics, Registry registry)
         {
-            var results = new List<IMetricResult>();
+            var results = new List<IMetricResult?>();
                 
             foreach (var metric in metrics)
             {

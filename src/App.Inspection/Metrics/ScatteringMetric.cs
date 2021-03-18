@@ -12,11 +12,16 @@ namespace App.Inspection.Metrics
     internal sealed class ScatteringMetric : IMetric
     {
         /// <inheritdoc />
-        public IMetricResult Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry)
+        public IMetricResult? Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry)
         {
             var uniqueLocationsIds = registry.GetReferenceLocationsAcrossSymbols(package)
                 .Select(r => r.Document.Id)
                 .ToList();
+
+            if (uniqueLocationsIds.Count < 1)
+            {
+                return null;
+            }
 
             var useCount = project.DocumentIds.Intersect(uniqueLocationsIds).Count();
             var totalCount = project.DocumentIds.Count;

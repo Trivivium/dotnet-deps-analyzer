@@ -12,14 +12,14 @@ namespace App.Inspection
         /// <summary>
         /// A collection of the results of the metrics that was computed on the package.
         /// </summary>
-        public IReadOnlyCollection<IMetricResult> Metrics { get; }
+        public IReadOnlyCollection<IMetricResult?> Metrics { get; }
 
         /// <summary>
         /// The name of the package.
         /// </summary>
         public string Name => _package.Name;
 
-        internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult> metrics)
+        internal PackageInspectionResult(Package package, IReadOnlyCollection<IMetricResult?> metrics)
         {
             _package = package;
             Metrics = metrics;

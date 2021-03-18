@@ -16,6 +16,6 @@ namespace App.Inspection.Metrics
         /// <param name="compilation">The Roslyn compilation of the project.</param>
         /// <param name="package">The package to generate metrics for.</param>
         /// <param name="registry">The registry of information collected about the project.</param>
-        public IMetricResult Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry);
+        public IMetricResult? Compute(Project project, Compilation compilation, PackageExecutableLoaded package, Registry registry);
     }
 }
