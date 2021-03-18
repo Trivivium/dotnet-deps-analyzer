@@ -21,13 +21,13 @@ namespace App.Inspection
         
         public TimeSpan Elapsed { get; internal set; }
         
-        public IReadOnlyCollection<PackageInspectionResult> Packages { get; }
+        public IReadOnlyCollection<PackageInspectionResult> PackageResults { get; }
 
         private ProjectInspectionResult(string name, IReadOnlyCollection<PackageInspectionResult> packages, TimeSpan? elapsed = null)
         {
             Name = name;
             Elapsed = elapsed ?? TimeSpan.Zero;
-            Packages = packages;
+            PackageResults = packages;
         }
     }
 }

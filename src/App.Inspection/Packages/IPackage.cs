@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 using NuGet.Versioning;
@@ -7,8 +8,14 @@ namespace App.Inspection.Packages
     /// <summary>
     /// Represents a package of an external dependency.
     /// </summary>
-    public interface IPackage
+    public interface IPackage : IEquatable<IPackage>
     {
+        /// <summary>
+        /// An ID of the package in relation to the inspection. This ID does not
+        /// have any meaning in any other context to the project.
+        /// </summary>
+        public Guid ID { get; }
+        
         /// <summary>
         /// Declares how the package is referenced from the project.
         /// </summary>
@@ -35,7 +42,7 @@ namespace App.Inspection.Packages
         /// If the <see cref="ReferenceType"/> of this package is <see cref="PackageReferenceType.Unknown"/>
         /// this is always <see langword="null"/>.
         /// </remarks>
-        public IPackage? Parent { get; }
+        public IReadOnlyCollection<IPackage>? Parents { get; }
         
         /// <summary>
         /// Declares the dependencies of this package. This applies to if the <see cref="ReferenceType"/> is
