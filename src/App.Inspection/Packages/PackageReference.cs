@@ -18,20 +18,20 @@ namespace App.Inspection.Packages
                 throw new InspectionException($"Unable to parse the semantic version of package: {name}");
             }
 
-            return new PackageReference(name, sVersion);
+            return new PackageReference(name, sVersion, parent: null, isExplicit: true);
         }
         
         public readonly string Name;
         public readonly SemanticVersion Version;
         public readonly PackageReference? Parent;
+        public readonly bool IsExplicit;
 
-        public bool IsTransientPackage => Parent != null;
-
-        public PackageReference(string name, SemanticVersion version, PackageReference? parent = null)
+        public PackageReference(string name, SemanticVersion version, PackageReference? parent = null, bool isExplicit = false)
         {
             Name = name;
             Version = version;
             Parent = parent;
+            IsExplicit = isExplicit;
         }
     }
 }

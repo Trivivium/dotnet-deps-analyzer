@@ -213,6 +213,8 @@ namespace App.Inspection
                     results.Add(ComputeMetrics(project, compilation, package, metrics, registry));
                 }
             }
+
+            results.AddRange(AddMissingExplicitPackages(resolver, exclusions, results));
             
             return ProjectInspectionResult.Ok(project, results);
         }
@@ -342,6 +344,20 @@ namespace App.Inspection
             }
 
             return new PackageInspectionResult(package, results);
+        }
+
+        private static IEnumerable<PackageInspectionResult> AddMissingExplicitPackages(PackageResolver resolver, NamespaceExclusionList exclusions, List<PackageInspectionResult> results)
+        {
+            foreach (var package in resolver.GetExplicitPackages())
+            {
+                if (exclusions.IsExcluded(package.Name))
+                    continue;
+
+                if (results.Any(result => result.Name == package.Name))
+                    continue;
+
+                yield return new PackageInspectionResult(package, new List<IMetricResult?>());
+            }
         }
     }
 }

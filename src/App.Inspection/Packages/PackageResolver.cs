@@ -33,6 +33,19 @@ namespace App.Inspection.Packages
             _logger = logger;
             _nugetCacheDirectory = SettingsUtility.GetGlobalPackagesFolder(Settings.LoadDefaultSettings(null));
         }
+
+        public IEnumerable<Package> GetExplicitPackages()
+        {
+            foreach (var (_, reference) in _references)
+            {
+                if (!reference.IsExplicit)
+                {
+                    continue;
+                }
+                
+                yield return new Package(PackageReferenceType.Explicit, reference.Name, reference.Version, null);
+            }
+        }
         
         public PackageExecutableLoaded CreatePackage(PortableExecutableWrapper executable)
         {
