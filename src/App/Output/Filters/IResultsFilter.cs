@@ -1,8 +1,8 @@
 using App.Inspection.Packages;
 
-namespace App.Rendering
+namespace App.Output.Filters
 {
-    public interface ITableFilter
+    internal interface IResultsFilter
     {
         public bool IsLineExcluded(IPackage package);
     }

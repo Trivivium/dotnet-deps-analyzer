@@ -1,23 +1,18 @@
-using System;
 using System.IO;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 
-using System.Diagnostics;
 using System.CommandLine;
-using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
-using System.CommandLine.Rendering.Views;
-using System.Diagnostics.CodeAnalysis;
+using System.CommandLine.IO;
 
-using App.Logging;
-using App.Rendering;
-using App.Extensions;
 using App.Factories;
 using App.Inspection;
 using App.Inspection.Exceptions;
+using App.Logging;
+using App.Output;
+using App.Output.Console;
 
 namespace App.Commands
 {
@@ -34,65 +29,44 @@ namespace App.Commands
                 Add(option);
             }
 
-            Handler = CommandHandler.Create((InspectCommandArgs args, IConsole console) => Handle(args, console));
+            Handler = CommandHandler.Create((InspectCommandArgs args, IConsole console) =>
+            {
+                return Handle(args, console, CancellationToken.None);
+            });
         }
 
-        private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
+        private static async Task<int> Handle(InspectCommandArgs args, IConsole console, CancellationToken ct)
         {
-            var terminal = new SystemConsoleTerminal(console);
-            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
+            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(console, args.Verbose));
+            
+            if (!InspectionParametersFactory.TryCreate(args, out var parameters, out var message))
+            {
+                console.Error.WriteLine(message);
+                
+                return 1;
+            }
+
+            var output = GetOutputDestination(console, args);
             
             try
             {
-                return await Inspect(terminal, inspector, args);
+                var results = inspector.InspectAsync(args.Path, parameters, ct);
+
+                await output.GenerateFromResults(results);
             }
             catch (InspectionException exception)
             {
-                terminal.WriteErrorLine(exception.Message);
+                console.Error.WriteLine(exception.Message);
 
                 return 1;
-            }
-        }
-        
-        private static async Task<int> Inspect(ITerminal terminal, CSharpInspector inspector, InspectCommandArgs args)
-        {
-            if (!InspectionParametersFactory.TryCreate(args, out var parameters, out var message))
-            {
-                terminal.WriteErrorLine(message);
-                
-                return 1;
-            }
-
-            var renderer = new ConsoleRenderer(terminal, OutputMode.PlainText);
-
-            await foreach (var project in inspector.InspectAsync(args.Path, parameters, CancellationToken.None))
-            {
-                var view = new StackLayoutView
-                {
-                    new ContentView("\n"),
-                    new ContentView($"Project: {project.Name} (took: {project.Elapsed.Seconds}s {project.Elapsed.Milliseconds}ms)"),
-                    new ContentView("\n")
-                };
-                
-                if (!project.PackageResults.Any())
-                {
-                    view.Add(new ContentView("-- No packages available --"));
-                }
-                else
-                {
-                    ITableFilter filter = args.ShowAll
-                        ? new NoopTableFilter()
-                        : new HasMetricValuesTableFilter(project);
-                    
-                    view.Add(MetricsTableView.CreateFromResult(project, filter));
-                }
-                
-                view.Add(new ContentView("\n"));
-                
-                view.Render(renderer, Region.Scrolling);
             }
 
             return 0;
+        }
+
+        private static IOutputDestination GetOutputDestination(IConsole console, InspectCommandArgs args)
+        {
+            return new MetricsView(console, args);
         }
         
         private static IEnumerable<Symbol> CreateArguments()
@@ -100,7 +74,7 @@ namespace App.Commands
             yield return new Argument<FileInfo>("path")
             {
                 Arity = ArgumentArity.ExactlyOne,
-                Description = "An absolute path to the .csproj or .sln file of the project/solution to inspect"
+                Description = "An absolute file path to the .csproj or .sln file of the project/solution to inspect"
             }.ExistingOnly();
 
             yield return new Option<bool>(
@@ -125,7 +99,9 @@ namespace App.Commands
                 {
                     "--excluded-namespaces"
                 },
-                "An optional comma-separated list of namespaces to exclude from the inspection results. A namespace is matched as a prefix to the types of a package. The option is additive to the defaults: 'System', 'Microsoft', and '.NETStandard'."
+                "An optional comma-separated list of namespaces to exclude from the inspection results." +
+                "A namespace is matched as a prefix to the types of a package. The option is additive to the " +
+                "defaults: 'System', 'Microsoft', and '.NETStandard'."
             );
 
             yield return new Option<string>(
@@ -133,7 +109,8 @@ namespace App.Commands
                 {
                     "--excluded-projects"
                 },
-                "An optional comma-separated list of project names to exclude from the inspection results. The default is none."
+                "An optional comma-separated list of project names to exclude from the inspection results." +
+                "The default is none."
             );
 
             yield return new Option<bool>(
@@ -141,7 +118,9 @@ namespace App.Commands
                 {
                     "--show-all"
                 },
-                "Enables showing all packages regardless of whether it has metrics relevant for the project. Use this to show the entire dependency graph. Note: This shows all packages reachable, which means transitive packages inherited from a project reference is also shown."
+                "Enables showing all packages regardless of whether it has metrics relevant for the project. Use " +
+                "this to show the entire dependency graph. Note: This shows all packages reachable, which means " +
+                "transitive packages inherited from a project reference is also shown."
             );
             
             yield return new Option<int>(
@@ -149,7 +128,9 @@ namespace App.Commands
                 {
                     "--max-concurrency"
                 },
-                "Determines the max number of tasks inspecting projects in parallel. This only have an effect when inspecting a solution with more than 1 project. The default is the number of logical CPU cores on the system."
+                "Determines the max number of tasks inspecting projects in parallel. This only have an effect when " +
+                "inspecting a solution with more than 1 project. The default is the number of logical CPU cores on " +
+                "the system."
             );
         }
     }

@@ -5,13 +5,13 @@ using System.Linq;
 using App.Inspection;
 using App.Inspection.Packages;
 
-namespace App.Rendering
+namespace App.Output.Filters
 {
-    public class HasMetricValuesTableFilter : ITableFilter
+    internal sealed class HasMetricsResultsFilter : IResultsFilter
     {
         private readonly ISet<Guid> _packageIDsWithMetrics;
 
-        public HasMetricValuesTableFilter(ProjectInspectionResult project)
+        public HasMetricsResultsFilter(ProjectInspectionResult project)
         {
             _packageIDsWithMetrics = project.PackageResults
                 .Where(pr => pr.Metrics.Any(metric => metric != null))

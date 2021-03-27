@@ -1,8 +1,8 @@
 using App.Inspection.Packages;
 
-namespace App.Rendering
+namespace App.Output.Filters
 {
-    public class NoopTableFilter : ITableFilter
+    internal sealed class NoopResultsFilter : IResultsFilter
     {
         public bool IsLineExcluded(IPackage package)
         {

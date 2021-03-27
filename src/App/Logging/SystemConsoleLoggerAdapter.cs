@@ -1,6 +1,6 @@
 using System;
+using System.CommandLine;
 using System.CommandLine.IO;
-using System.CommandLine.Rendering;
 
 using App.Inspection;
 
@@ -12,10 +12,10 @@ namespace App.Logging
     /// </summary>
     internal class SystemConsoleLoggerAdapter : ILogger
     {
-        private readonly ITerminal _terminal;
+        private readonly IConsole _terminal;
         private readonly bool _verbose;
 
-        public SystemConsoleLoggerAdapter(ITerminal terminal, bool verbose)
+        public SystemConsoleLoggerAdapter(IConsole terminal, bool verbose)
         {
             _terminal = terminal;
             _verbose = verbose;
