@@ -8,7 +8,7 @@ namespace App.Inspection
 {
     internal class NamespaceExclusionList
     {
-        private readonly List<Namespace> _namespaces;
+        private readonly List<string> _namespaces;
 
         /// <summary>
         /// Creates an exclusion list based on the inspection parameters and the project being inspected. The
@@ -18,23 +18,21 @@ namespace App.Inspection
         /// <param name="project">The project being inspected.</param>
         public static NamespaceExclusionList CreateFromParameters(InspectionParameters parameters, Project project)
         {
-            var namespaces = parameters.ExcludedNamespaces
-                .Select(ns => new Namespace(ns))
-                .ToList();
+            var namespaces = parameters.ExcludedNamespaces.ToList();
 
             // Add references to type in the project itself to the exclusions 
             if (project.DefaultNamespace != null)
             {
                 var projectRootNs = project.DefaultNamespace;
                 
-                namespaces.Add(new Namespace(projectRootNs));
+                namespaces.Add(projectRootNs);
                 
                 // Stem the root ns
                 var offset = projectRootNs.IndexOf('.');
 
                 if (offset > 0 && offset < projectRootNs.Length)
                 {
-                    namespaces.Add(new Namespace(projectRootNs.Substring(0, offset)));
+                    namespaces.Add(projectRootNs.Substring(0, offset));
                 }
             }
             
@@ -45,14 +43,14 @@ namespace App.Inspection
 
                 if (referencedProject?.DefaultNamespace != null)
                 {
-                    namespaces.Add(new Namespace(referencedProject.DefaultNamespace));
+                    namespaces.Add(referencedProject.DefaultNamespace);
                 }
             }
 
             return new NamespaceExclusionList(namespaces);
         }
 
-        private NamespaceExclusionList(List<Namespace> namespaces)
+        private NamespaceExclusionList(List<string> namespaces)
         {
             _namespaces = namespaces;
         }
@@ -69,7 +67,7 @@ namespace App.Inspection
                 return true;
             }
 
-            return _namespaces.Any(exclusion => ns.StartsWith(exclusion.Value, StringComparison.OrdinalIgnoreCase));
+            return _namespaces.Any(exclusion => ns.StartsWith(exclusion, StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
