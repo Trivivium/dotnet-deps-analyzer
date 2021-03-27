@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -8,8 +9,8 @@ using System.Diagnostics;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
-using System.CommandLine.Parsing;
 using System.CommandLine.Rendering.Views;
+using System.Diagnostics.CodeAnalysis;
 
 using App.Logging;
 using App.Rendering;
@@ -38,7 +39,15 @@ namespace App.Commands
         private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
         {
             var terminal = new SystemConsoleTerminal(console);
-            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose), args.MaxConcurrency);
+
+            if (!TryGetMaxConcurrency(args, out var maxConcurrency, out var errorMessage))
+            {
+                terminal.WriteErrorLine(errorMessage);
+
+                return 1;
+            }
+            
+            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose), maxConcurrency.Value);
             
             try
             {
@@ -62,12 +71,7 @@ namespace App.Commands
         
         private static async Task Inspect(ITerminal terminal, CSharpInspector inspector, InspectCommandArgs args)
         {
-            // TODO: Construct parameters from command line arguments.
-            var parameters = InspectionParameters.CreateWithDefaults(
-                Enumerable.Empty<string>(), 
-                Enumerable.Empty<string>(), 
-                Enumerable.Empty<string>()
-            );
+            var parameters = CreateInspectionParameters(args);
             
             var renderer = new ConsoleRenderer(terminal, OutputMode.PlainText);
 
@@ -86,8 +90,9 @@ namespace App.Commands
                 }
                 else
                 {
-                    //var filter = new NoopTableFilter();
-                    var filter = new HasMetricValuesTableFilter(project);
+                    ITableFilter filter = args.ShowAll
+                        ? new NoopTableFilter()
+                        : new HasMetricValuesTableFilter(project);
                     
                     view.Add(MetricsTableView.CreateFromResult(project, filter));
                 }
@@ -96,6 +101,43 @@ namespace App.Commands
                 
                 view.Render(renderer, Region.Scrolling);
             }
+        }
+
+        private static InspectionParameters CreateInspectionParameters(InspectCommandArgs args)
+        {
+            const StringSplitOptions options = StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries;
+            
+            var metrics = args.Metrics?.Split(',', options) ?? Enumerable.Empty<string>();
+            var projects = args.ExcludedProjects?.Split(',', options) ?? Enumerable.Empty<string>();
+            var namespaces = args.ExcludedNamespaces?.Split(',', options) ?? Enumerable.Empty<string>();
+            
+            return InspectionParameters.CreateWithDefaults(projects, namespaces, metrics);
+        }
+
+        private static bool TryGetMaxConcurrency(InspectCommandArgs args, [NotNullWhen(true)] out int? maxConcurrency, [NotNullWhen(false)] out string? error)
+        {
+            error = null;
+            
+            var value = args.MaxConcurrency;
+
+            if (value < 1)
+            {
+                maxConcurrency = 1;
+                error = "The provided max concurrency cannot be less than 1";
+
+                return false;
+            }
+
+            if (Debugger.IsAttached)
+            {
+                maxConcurrency = 1;
+            }
+            else
+            {
+                maxConcurrency = value;
+            }
+
+            return true;
         }
         
         private static IEnumerable<Symbol> CreateArguments()
@@ -139,12 +181,20 @@ namespace App.Commands
                 "An optional comma-separated list of project names to exclude from the inspection results. The default is none."
             );
 
+            yield return new Option<bool>(
+                new []
+                {
+                    "--show-all"
+                },
+                "Enables showing all packages regardless of whether it has metrics relevant for the project. Use this to show the entire dependency graph. Note: This shows all packages reachable, which means transitive packages inherited from a project reference is also shown."
+            );
+            
             yield return new Option<int>(
                 new[]
                 {
                     "--max-concurrency"
                 },
-                "Determines if the max number of tasks inspecting projects in parallel. This only have an effect when inspecting a solution with more than 1 project. The default is the number of logical CPU cores on the system."
+                "Determines the max number of tasks inspecting projects in parallel. This only have an effect when inspecting a solution with more than 1 project. The default is the number of logical CPU cores on the system."
             );
         }
     }

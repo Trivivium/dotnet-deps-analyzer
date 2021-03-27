@@ -5,6 +5,8 @@ using System.CommandLine.Rendering;
 using System.CommandLine.Rendering.Views;
 using System.Text;
 
+using App.Commands;
+
 using NuGet.Versioning;
 
 using App.Inspection;
@@ -50,13 +52,13 @@ namespace App.Rendering
             );
             
             table.AddColumn(
-                line => FormatFloat(line.Scatter, 12),
-                new ContentView("Scatter (%)".PadLeft(12))
+                line => FormatFloat(line.Scatter, 15),
+                new ContentView("Scattering (%)".PadLeft(15))
             );
             
             table.AddColumn(
-                line => line.TransientCount.ToString().PadLeft(17),
-                new ContentView("# of Dependencies")
+                line => line.TransientCount.ToString().PadLeft(15),
+                new ContentView("Transitive Count")
             );
             
             view.Add(table);

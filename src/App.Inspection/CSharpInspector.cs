@@ -158,8 +158,10 @@ namespace App.Inspection
         /// <exception cref="AggregateException"></exception>
         private async Task ParallelProcessAsync(IEnumerable<Project> projects, InspectionContext context, IList<IMetric> metrics, ChannelWriter<ProjectInspectionResult> results, CancellationToken ct)
         {
+            var filtered = projects.Where(project => !context.Parameters.IsProjectExcluded(project)).ToList();
+            
             var exceptions = new List<Exception>();
-            var partitions = Partitioner.Create(projects).GetPartitions(_maxProcessingConcurrency);
+            var partitions = Partitioner.Create(filtered).GetPartitions(_maxProcessingConcurrency);
 
             try
             {
@@ -171,7 +173,7 @@ namespace App.Inspection
                         {
                             try
                             {
-                                var result = await FilteredProcessAsync(context, metrics, partition.Current, ct);
+                                var result = await TimedProcessAsync(context, metrics, partition.Current, ct);
                 
                                 await results.WriteAsync(result, ct);
                             }
@@ -207,7 +209,7 @@ namespace App.Inspection
         /// <param name="ct">A cancellation token.</param>
         private async Task<ProjectInspectionResult> FilteredProcessAsync(InspectionContext context, IList<IMetric> metrics, Project project, CancellationToken ct)
         {
-            if (context.Parameters.ExcludedProjects.Contains(project.Name.ToUpperInvariant()))
+            if (context.Parameters.IsProjectExcluded(project))
             {
                 _logger.LogVerbose($"Skipping ignored project: {project.Name}");
             

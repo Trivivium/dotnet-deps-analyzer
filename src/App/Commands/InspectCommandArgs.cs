@@ -33,6 +33,12 @@ namespace App.Commands
         public string? ExcludedProjects { get; set; }
         
         /// <summary>
+        /// Indicates if the results should show all packages regardless of whether it has metrics
+        /// relevant for the project.
+        /// </summary>
+        public bool ShowAll { get; set; }
+        
+        /// <summary>
         /// Declares the maximum number of threads inspecting projects in parallel.
         /// </summary>
         public int MaxConcurrency { get; set; } = Environment.ProcessorCount;

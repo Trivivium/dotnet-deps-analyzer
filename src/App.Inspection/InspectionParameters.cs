@@ -1,5 +1,8 @@
+using System;
 using System.Linq;
 using System.Collections.Generic;
+
+using Microsoft.CodeAnalysis;
 
 namespace App.Inspection
 {
@@ -54,6 +57,11 @@ namespace App.Inspection
             Metrics = (metrics ?? new List<string>())
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
+        }
+
+        internal bool IsProjectExcluded(Project project)
+        {
+            return ExcludedProjects.Contains(project.Name, StringComparer.OrdinalIgnoreCase);
         }
     }
 }
