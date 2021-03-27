@@ -16,13 +16,22 @@ namespace App.Commands
         /// Indicates if the inspect command was invoked with verbose logging enabled.
         /// </summary>
         public bool Verbose { get; set; }
+
+        /// <summary>
+        /// Declares a comma-separated list of metrics to compute for all inspected projects.
+        /// </summary>
+        public string? Metrics { get; set; }
         
         /// <summary>
-        /// Indicates if the inspect command was invoked in headless mode. This disables formatting of
-        /// output (e.g., the progress indicator).
+        /// Declares a comma-separated list of namespaces to exclude from the inspection results.
         /// </summary>
-        public bool Headless { get; set; }
-
+        public string? ExcludedNamespaces { get; set; }
+        
+        /// <summary>
+        /// Declares a comma-separated list of projects to exclude from the inspection results.
+        /// </summary>
+        public string? ExcludedProjects { get; set; }
+        
         /// <summary>
         /// Declares the maximum number of threads inspecting projects in parallel.
         /// </summary>

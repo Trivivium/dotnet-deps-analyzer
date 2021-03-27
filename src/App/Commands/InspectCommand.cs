@@ -8,6 +8,7 @@ using System.Diagnostics;
 using System.CommandLine;
 using System.CommandLine.Rendering;
 using System.CommandLine.Invocation;
+using System.CommandLine.Parsing;
 using System.CommandLine.Rendering.Views;
 
 using App.Logging;
@@ -22,7 +23,7 @@ namespace App.Commands
     {
         // These fields has the 'Ctor' prefix to avoid name conflicts with similar protected properties it inherits.
         private const string CtorName = "inspect";
-        private const string CtorDescription = "Inspects a specific project or solution and generates a report of the results";
+        private const string CtorDescription = "Inspects the integration of NuGet packages in a C# solution or a specific project.";
         
         public InspectCommand() : base(CtorName, CtorDescription)
         {
@@ -104,10 +105,47 @@ namespace App.Commands
                 Arity = ArgumentArity.ExactlyOne,
                 Description = "An absolute path to the .csproj or .sln file of the project/solution to inspect"
             }.ExistingOnly();
-            
-            yield return new Option<bool>(new [] { "--verbose", "-v" }, "Enables verbose logging");
 
-            yield return new Option<bool>("--headless", "Disables any any formatting of the console output (e.g., the progress indicator)");
+            yield return new Option<bool>(
+                new[]
+                {
+                    "--verbose",
+                    "-v"
+                },
+                "Enables verbose logging of the inspection process."
+            );
+
+            yield return new Option<string>(
+                new[]
+                {
+                    "--metrics"
+                },
+                "An optional comma-separated list of metrics to compute for all projects. The defaults is all."
+            );
+
+            yield return new Option<string>(
+                new[]
+                {
+                    "--excluded-namespaces"
+                },
+                "An optional comma-separated list of namespaces to exclude from the inspection results. A namespace is matched as a prefix to the types of a package. The option is additive to the defaults: 'System', 'Microsoft', and '.NETStandard'."
+            );
+
+            yield return new Option<string>(
+                new[]
+                {
+                    "--excluded-projects"
+                },
+                "An optional comma-separated list of project names to exclude from the inspection results. The default is none."
+            );
+
+            yield return new Option<int>(
+                new[]
+                {
+                    "--max-concurrency"
+                },
+                "Determines if the max number of tasks inspecting projects in parallel. This only have an effect when inspecting a solution with more than 1 project. The default is the number of logical CPU cores on the system."
+            );
         }
     }
 }

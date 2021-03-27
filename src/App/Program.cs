@@ -9,7 +9,7 @@ namespace App
     {
         public static async Task<int> Main(string[] args)
         {
-            var root = new RootCommand("An automatic tool to inspect and assess encapsulation of external dependencies.")
+            var root = new RootCommand("Provides commands to assess the integration of NuGet packages in a C# project.")
             {
                 new InspectCommand()
             };
