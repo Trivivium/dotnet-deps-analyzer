@@ -11,11 +11,11 @@ namespace App.Inspection
 {
     internal class InspectionContext
     {
-        private readonly IDictionary<string, Func<IMetric>> _factories = new Dictionary<string, Func<IMetric>>
+        private readonly IDictionary<MetricName, Func<IMetric>> _factories = new Dictionary<MetricName, Func<IMetric>>
         {
-            { "Usage",      () => new UsageMetric() },
-            { "Scattering", () => new ScatteringMetric() },
-            { "TransitiveCount", () => new TransitiveCountMetric() }
+            { MetricName.Usage, () => new UsageMetric() },
+            { MetricName.Scattering, () => new ScatteringMetric() },
+            { MetricName.TransitiveCount, () => new TransitiveCountMetric() }
         };
         
         public readonly FileSystemInfo File;
@@ -45,7 +45,7 @@ namespace App.Inspection
             else
             {
                 var selected = _factories
-                    .Where(kvp => parameters.Metrics.Contains(kvp.Key, StringComparer.OrdinalIgnoreCase))
+                    .Where(kvp => parameters.Metrics.Contains(kvp.Key))
                     .Select(kvp => kvp.Value);
                 
                 foreach (var factory in selected)

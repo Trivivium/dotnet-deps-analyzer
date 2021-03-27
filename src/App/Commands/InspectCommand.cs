@@ -15,6 +15,7 @@ using System.Diagnostics.CodeAnalysis;
 using App.Logging;
 using App.Rendering;
 using App.Extensions;
+using App.Factories;
 using App.Inspection;
 using App.Inspection.Exceptions;
 
@@ -39,25 +40,11 @@ namespace App.Commands
         private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
         {
             var terminal = new SystemConsoleTerminal(console);
-
-            if (!TryGetMaxConcurrency(args, out var maxConcurrency, out var errorMessage))
-            {
-                terminal.WriteErrorLine(errorMessage);
-
-                return 1;
-            }
-            
-            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose), maxConcurrency.Value);
+            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
             
             try
             {
-                var sw = new Stopwatch();
-                
-                sw.Restart();
-
-                await Inspect(terminal, inspector, args);
-                
-                terminal.WriteLine($"\nTotal time elapsed: {sw.Elapsed.Hours}h {sw.Elapsed.Minutes}m {sw.Elapsed.Seconds}s");
+                return await Inspect(terminal, inspector, args);
             }
             catch (InspectionException exception)
             {
@@ -65,14 +52,17 @@ namespace App.Commands
 
                 return 1;
             }
-            
-            return 0;
         }
         
-        private static async Task Inspect(ITerminal terminal, CSharpInspector inspector, InspectCommandArgs args)
+        private static async Task<int> Inspect(ITerminal terminal, CSharpInspector inspector, InspectCommandArgs args)
         {
-            var parameters = CreateInspectionParameters(args);
-            
+            if (!InspectionParametersFactory.TryCreate(args, out var parameters, out var message))
+            {
+                terminal.WriteErrorLine(message);
+                
+                return 1;
+            }
+
             var renderer = new ConsoleRenderer(terminal, OutputMode.PlainText);
 
             await foreach (var project in inspector.InspectAsync(args.Path, parameters, CancellationToken.None))
@@ -101,52 +91,8 @@ namespace App.Commands
                 
                 view.Render(renderer, Region.Scrolling);
             }
-        }
 
-        private static InspectionParameters CreateInspectionParameters(InspectCommandArgs args)
-        {
-            const StringSplitOptions options = StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries;
-
-            var metrics = args.Metrics;
-            var projects = args.ExcludedProjects;
-            var namespaces = args.ExcludedNamespaces;
-
-            if (string.IsNullOrWhiteSpace(metrics))
-            {
-                metrics = null;
-            }
-            
-            var metricsList = metrics?.Split(',', options) ?? Enumerable.Empty<string>();
-            var projectsList = projects?.Split(',', options) ?? Enumerable.Empty<string>();
-            var namespacesList = namespaces?.Split(',', options) ?? Enumerable.Empty<string>();
-            
-            return InspectionParameters.CreateWithDefaults(projectsList, namespacesList, metricsList);
-        }
-
-        private static bool TryGetMaxConcurrency(InspectCommandArgs args, [NotNullWhen(true)] out int? maxConcurrency, [NotNullWhen(false)] out string? error)
-        {
-            error = null;
-            
-            var value = args.MaxConcurrency;
-
-            if (value < 1)
-            {
-                maxConcurrency = 1;
-                error = "The provided max concurrency cannot be less than 1";
-
-                return false;
-            }
-
-            if (Debugger.IsAttached)
-            {
-                maxConcurrency = 1;
-            }
-            else
-            {
-                maxConcurrency = value;
-            }
-
-            return true;
+            return 0;
         }
         
         private static IEnumerable<Symbol> CreateArguments()

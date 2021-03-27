@@ -4,6 +4,8 @@ using System.Collections.Generic;
 
 using Microsoft.CodeAnalysis;
 
+using App.Inspection.Metrics;
+
 namespace App.Inspection
 {
     /// <summary>
@@ -25,27 +27,32 @@ namespace App.Inspection
         /// <param name="excludedProjects">A collection of projects to exclude from the analysis.</param>
         /// <param name="excludedNamespaces">A collection of namespaces to exclude in addition to the defaults.</param>
         /// <param name="metrics">An optional collection of metrics to compute. If <see langword="null"/> is provided all metrics are computed.</param>
+        /// <param name="maxConcurrency">Declares the maximum number of projects being inspected in parallel.</param>
         public static InspectionParameters CreateWithDefaults(
             IEnumerable<string> excludedProjects,
             IEnumerable<string> excludedNamespaces,
-            IEnumerable<string>? metrics)
+            IEnumerable<MetricName>? metrics,
+            int maxConcurrency)
         {
             excludedNamespaces = excludedNamespaces
                 .Union(_defaultNamespaceExclusions)
                 .Distinct();
 
-            return new InspectionParameters(excludedProjects, excludedNamespaces, metrics);
+            return new InspectionParameters(excludedProjects, excludedNamespaces, metrics, maxConcurrency);
         }
 
         internal readonly ICollection<string> ExcludedProjects;
         internal readonly ICollection<string> ExcludedNamespaces;
-        internal readonly ICollection<string> Metrics;
+        internal readonly ICollection<MetricName> Metrics;
+        internal readonly int MaxConcurrency;
 
         private InspectionParameters(
             IEnumerable<string> excludedProjects,
             IEnumerable<string> ignoredNamespaces,
-            IEnumerable<string>? metrics)
+            IEnumerable<MetricName>? metrics,
+            int maxConcurrency)
         {
+            MaxConcurrency = maxConcurrency;
             ExcludedProjects = excludedProjects
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
@@ -54,9 +61,7 @@ namespace App.Inspection
                 .Select(p => p.ToUpperInvariant())
                 .ToList();
             
-            Metrics = (metrics ?? new List<string>())
-                .Select(p => p.ToUpperInvariant())
-                .ToList();
+            Metrics = (metrics ?? new List<MetricName>()).ToList();
         }
 
         internal bool IsProjectExcluded(Project project)

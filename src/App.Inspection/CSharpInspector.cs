@@ -35,20 +35,12 @@ namespace App.Inspection
         private readonly ILogger _logger;
         
         /// <summary>
-        /// Declares the max number of parallel tasks processing projects. This is only used
-        /// when inspecting a solution with more than 1 project.
-        /// </summary>
-        private readonly int _maxProcessingConcurrency;
-
-        /// <summary>
         /// Instantiates an inspection provider for C# projects.
         /// </summary>
         /// <param name="logger">A logging sink for logs produced by the inspection.</param>
-        /// <param name="maxProcessingConcurrency">Declares the max number of parallel tasks processing projects.</param>
-        public CSharpInspector(ILogger logger, int maxProcessingConcurrency)
+        public CSharpInspector(ILogger logger)
         {
             _logger = logger;
-            _maxProcessingConcurrency = maxProcessingConcurrency;
         }
         
         /// <summary>
@@ -148,7 +140,7 @@ namespace App.Inspection
         }
 
         /// <summary>
-        /// Processes the provided <paramref name="projects"/> in parallel with a max concurrency declared by <see cref="_maxProcessingConcurrency"/>.
+        /// Processes the provided <paramref name="projects"/> in parallel with a max concurrency declared by <see cref="InspectionParameters.MaxConcurrency"/>.
         /// </summary>
         /// <param name="projects">A collection projects to process.</param>
         /// <param name="context">The inspection context.</param>
@@ -161,7 +153,7 @@ namespace App.Inspection
             var filtered = projects.Where(project => !context.Parameters.IsProjectExcluded(project)).ToList();
             
             var exceptions = new List<Exception>();
-            var partitions = Partitioner.Create(filtered).GetPartitions(_maxProcessingConcurrency);
+            var partitions = Partitioner.Create(filtered).GetPartitions(context.Parameters.MaxConcurrency);
 
             try
             {
@@ -200,25 +192,6 @@ namespace App.Inspection
             }
         }
 
-        /// <summary>
-        /// Checks if the <paramref name="project"/> is excluded and short-circuits the processing steps.
-        /// </summary>
-        /// <param name="context">The inspection context.</param>
-        /// <param name="metrics">The metrics to compute on each package of each project in the solution.</param>
-        /// <param name="project">The project to inspect.</param>
-        /// <param name="ct">A cancellation token.</param>
-        private async Task<ProjectInspectionResult> FilteredProcessAsync(InspectionContext context, IList<IMetric> metrics, Project project, CancellationToken ct)
-        {
-            if (context.Parameters.IsProjectExcluded(project))
-            {
-                _logger.LogVerbose($"Skipping ignored project: {project.Name}");
-            
-                return ProjectInspectionResult.Ignored(project);
-            }
-
-            return await TimedProcessAsync(context, metrics, project, ct);
-        }
-        
         /// <summary>
         /// Records the execution time of the processing for the provided <paramref name="project"/>.
         /// </summary>
