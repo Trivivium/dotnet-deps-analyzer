@@ -98,14 +98,32 @@ namespace App.Inspection.Executables
 
                     if (ns is null)
                     {
-                        _logger.LogVerbose($"Skipping referenced assembly: {reference.Display ?? "<unknown>"}. It has not exported types.");
+                        _logger.LogVerbose($"Skipping referenced assembly: {reference.Display ?? "<unknown>"}. It has no exported types.");
 
                         continue;
                     }
 
-                    if (exclusions.IsExcluded(ns))
+                    var isSdkAssembly = IsSdkAssembly(assembly);
+                    var isReferenceAssembly = IsReferenceAssembly(assembly);
+                    
+                    if (exclusions.IsExcluded(ns, isSdkAssembly, isReferenceAssembly))
                     {
-                        _logger.LogVerbose($"Skipping referenced assembly: {reference.Display ?? "<unknown>"}. The exported types are excluded.");
+                        string reason;
+
+                        if (isSdkAssembly)
+                        {
+                            reason = "It is part of the SDK";
+                        }
+                        else if (isReferenceAssembly)
+                        {
+                            reason = "It is a reference assembly";
+                        }
+                        else
+                        {
+                            reason = "It is excluded";
+                        }
+                        
+                        _logger.LogVerbose($"Skipping referenced assembly: {reference.Display ?? "<unknown>"}. {reason}.");
 
                         continue;
                     }
@@ -126,6 +144,28 @@ namespace App.Inspection.Executables
                 return exportedType != null
                     ? exportedType.Namespace
                     : null;
+            }
+
+            private static bool IsSdkAssembly(Assembly assembly)
+            {
+                return false;   // TODO: Determine if the assembly is part of the local SDK installation. This needs to take different SDKs into consideration (e.g., Microsoft.Sdk.NET vs Microsoft.Sdk.NET.Web)
+            }
+
+            private static bool IsReferenceAssembly(Assembly assembly)
+            {
+                const string key = "System.Runtime.CompilerServices.ReferenceAssemblyAttribute";
+                
+                var attributes = assembly.GetCustomAttributesData();
+
+                foreach (var attribute in attributes)
+                {
+                    if (attribute?.AttributeType.FullName?.Equals(key, StringComparison.InvariantCultureIgnoreCase) ?? false)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
     }
