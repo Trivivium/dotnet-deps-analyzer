@@ -106,12 +106,21 @@ namespace App.Commands
         private static InspectionParameters CreateInspectionParameters(InspectCommandArgs args)
         {
             const StringSplitOptions options = StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries;
+
+            var metrics = args.Metrics;
+            var projects = args.ExcludedProjects;
+            var namespaces = args.ExcludedNamespaces;
+
+            if (string.IsNullOrWhiteSpace(metrics))
+            {
+                metrics = null;
+            }
             
-            var metrics = args.Metrics?.Split(',', options) ?? Enumerable.Empty<string>();
-            var projects = args.ExcludedProjects?.Split(',', options) ?? Enumerable.Empty<string>();
-            var namespaces = args.ExcludedNamespaces?.Split(',', options) ?? Enumerable.Empty<string>();
+            var metricsList = metrics?.Split(',', options) ?? Enumerable.Empty<string>();
+            var projectsList = projects?.Split(',', options) ?? Enumerable.Empty<string>();
+            var namespacesList = namespaces?.Split(',', options) ?? Enumerable.Empty<string>();
             
-            return InspectionParameters.CreateWithDefaults(projects, namespaces, metrics);
+            return InspectionParameters.CreateWithDefaults(projectsList, namespacesList, metricsList);
         }
 
         private static bool TryGetMaxConcurrency(InspectCommandArgs args, [NotNullWhen(true)] out int? maxConcurrency, [NotNullWhen(false)] out string? error)

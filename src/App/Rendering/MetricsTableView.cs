@@ -49,26 +49,32 @@ namespace App.Rendering
             );
 
             if (items.Any(item => item.Usage != null))
-            {      
+            {
+                const string header = "Usage (%)";
+                
                 table.AddColumn(
-                    line => FormatFloat(line.Usage, 12),
-                    new ContentView("Usage (%)".PadLeft(12))
+                    line => FormatFloat(line.Usage, header.Length),
+                    new ContentView(header)
                 );
             }
 
             if (items.Any(item => item.Scatter != null))
             {
+                const string header = "Scattering (%)";
+                
                 table.AddColumn(
-                    line => FormatFloat(line.Scatter, 15),
-                    new ContentView("Scattering (%)".PadLeft(15))
+                    line => FormatFloat(line.Scatter, header.Length),
+                    new ContentView(header)
                 );
             }
 
             if (items.Any(item => item.TransientCount != null))
             {
+                const string header = "Transitive Count";
+                
                 table.AddColumn(
-                    line => line.TransientCount?.ToString().PadLeft(15),
-                    new ContentView("Transitive Count")
+                    line => line.TransientCount?.ToString().PadLeft(header.Length),
+                    new ContentView(header)
                 );
             }
 
@@ -171,6 +177,7 @@ namespace App.Rendering
         {
             float? usageValue = null;
             float? scatterValue = null;
+            int? transitiveCountValue = null;
 
             foreach (var metric in metrics)
             {
@@ -179,6 +186,9 @@ namespace App.Rendering
 
                 if (metric is ScatteringMetricResult scatter)
                     scatterValue = scatter.Percentage;
+
+                if (metric is TransitiveCountMetricResult transitiveCount)
+                    transitiveCountValue = transitiveCount.Count;
             }
 
             return new MetricsTableLine
@@ -190,7 +200,7 @@ namespace App.Rendering
                 Version = package.Version,
                 Usage = usageValue,
                 Scatter = scatterValue,
-                TransientCount = package.GetUniqueDependenciesCount()
+                TransientCount = transitiveCountValue
             };
         }
         
