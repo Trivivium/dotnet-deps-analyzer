@@ -20,10 +20,12 @@ namespace App.Rendering
     {
         public static MetricsTableView CreateFromResult(ProjectInspectionResult result, ITableFilter filter)
         {
+            var items = GetItems(result, filter);
+            
             var view = new MetricsTableView();
             var table = new TableView<MetricsTableLine>
             {
-                Items = GetItems(result, filter)
+                Items = items
             };
             
             table.AddColumn(
@@ -45,22 +47,31 @@ namespace App.Rendering
                 line => line.PackageType.PadRight(10),
                 new ContentView("Type".PadRight(10))
             );
-            
-            table.AddColumn(
-                line => FormatFloat(line.Usage, 12),
-                new ContentView("Usage (%)".PadLeft(12))
-            );
-            
-            table.AddColumn(
-                line => FormatFloat(line.Scatter, 15),
-                new ContentView("Scattering (%)".PadLeft(15))
-            );
-            
-            table.AddColumn(
-                line => line.TransientCount.ToString().PadLeft(15),
-                new ContentView("Transitive Count")
-            );
-            
+
+            if (items.Any(item => item.Usage != null))
+            {      
+                table.AddColumn(
+                    line => FormatFloat(line.Usage, 12),
+                    new ContentView("Usage (%)".PadLeft(12))
+                );
+            }
+
+            if (items.Any(item => item.Scatter != null))
+            {
+                table.AddColumn(
+                    line => FormatFloat(line.Scatter, 15),
+                    new ContentView("Scattering (%)".PadLeft(15))
+                );
+            }
+
+            if (items.Any(item => item.TransientCount != null))
+            {
+                table.AddColumn(
+                    line => line.TransientCount?.ToString().PadLeft(15),
+                    new ContentView("Transitive Count")
+                );
+            }
+
             view.Add(table);
             
             return view;
@@ -197,7 +208,7 @@ namespace App.Rendering
             public SemanticVersion Version { get; set; }
             public float? Usage { get; set; }
             public float? Scatter { get; set; }
-            public int TransientCount { get; set; }
+            public int? TransientCount { get; set; }
             
             #nullable restore warnings
         }
