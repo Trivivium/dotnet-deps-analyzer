@@ -6,5 +6,8 @@ namespace App.Inspection.Exceptions
     {
         public InspectionException(string? message) : base(message)
         { }
+
+        public InspectionException(string? message, Exception exception) : base(message, exception)
+        { }
     }
 }

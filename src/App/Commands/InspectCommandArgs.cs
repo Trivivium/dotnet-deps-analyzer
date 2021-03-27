@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 
 #nullable disable warnings
@@ -21,5 +22,10 @@ namespace App.Commands
         /// output (e.g., the progress indicator).
         /// </summary>
         public bool Headless { get; set; }
+
+        /// <summary>
+        /// Declares the maximum number of threads inspecting projects in parallel.
+        /// </summary>
+        public int MaxConcurrency { get; set; } = Environment.ProcessorCount;
     }
 }

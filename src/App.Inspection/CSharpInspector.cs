@@ -3,8 +3,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Threading.Channels;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -27,11 +29,26 @@ namespace App.Inspection
     /// </summary>
     public class CSharpInspector
     {
+        /// <summary>
+        /// A logging sink for logs produced by the inspection.
+        /// </summary>
         private readonly ILogger _logger;
+        
+        /// <summary>
+        /// Declares the max number of parallel tasks processing projects. This is only used
+        /// when inspecting a solution with more than 1 project.
+        /// </summary>
+        private readonly int _maxProcessingConcurrency;
 
-        public CSharpInspector(ILogger logger)
+        /// <summary>
+        /// Instantiates an inspection provider for C# projects.
+        /// </summary>
+        /// <param name="logger">A logging sink for logs produced by the inspection.</param>
+        /// <param name="maxProcessingConcurrency">Declares the max number of parallel tasks processing projects.</param>
+        public CSharpInspector(ILogger logger, int maxProcessingConcurrency)
         {
             _logger = logger;
+            _maxProcessingConcurrency = maxProcessingConcurrency;
         }
         
         /// <summary>
@@ -96,16 +113,8 @@ namespace App.Inspection
             }
             
             _logger.LogInformation("Done");
-
-            var sw = Stopwatch.StartNew();
-                
-            var result = await ProcessAsync(context.Parameters, project, metrics, ct);
-
-            sw.Stop();
-
-            result.Elapsed = sw.Elapsed;
-                
-            return result;
+            
+            return await TimedProcessAsync(context, metrics, project, ct);
         }
 
         /// <summary>
@@ -126,28 +135,106 @@ namespace App.Inspection
             }
             
             _logger.LogInformation("Done");
-
-            var sw = new Stopwatch();
             
-            foreach (Project project in solution.Projects)
+            var results = Channel.CreateUnbounded<ProjectInspectionResult>();
+            var producerTask = ParallelProcessAsync(solution.Projects, context, metrics, results.Writer, ct);
+
+            await foreach (var result in results.Reader.ReadAllAsync(ct))
             {
-                if (context.Parameters.ExcludedProjects.Contains(project.Name.ToUpperInvariant()))
-                {
-                    _logger.LogVerbose($"Skipping ignored project: {project.Name}");
-                    
-                    yield return ProjectInspectionResult.Ignored(project);
-                }
-                
-                sw.Restart();
-                
-                var result = await ProcessAsync(context.Parameters, project, metrics, ct);
-
-                sw.Stop();
-
-                result.Elapsed = sw.Elapsed;
-                
                 yield return result;
             }
+
+            await producerTask;
+        }
+
+        /// <summary>
+        /// Processes the provided <paramref name="projects"/> in parallel with a max concurrency declared by <see cref="_maxProcessingConcurrency"/>.
+        /// </summary>
+        /// <param name="projects">A collection projects to process.</param>
+        /// <param name="context">The inspection context.</param>
+        /// <param name="metrics">The metrics to compute on each package of each project in the solution.</param>
+        /// <param name="results">The output channel for the processing results.</param>
+        /// <param name="ct">A cancellation token.</param>
+        /// <exception cref="AggregateException"></exception>
+        private async Task ParallelProcessAsync(IEnumerable<Project> projects, InspectionContext context, IList<IMetric> metrics, ChannelWriter<ProjectInspectionResult> results, CancellationToken ct)
+        {
+            var exceptions = new List<Exception>();
+            var partitions = Partitioner.Create(projects).GetPartitions(_maxProcessingConcurrency);
+
+            try
+            {
+                var tasks = partitions.Select(partition => Task.Run(async delegate
+                {
+                    using (partition)
+                    {
+                        while (!ct.IsCancellationRequested && partition.MoveNext())
+                        {
+                            try
+                            {
+                                var result = await FilteredProcessAsync(context, metrics, partition.Current, ct);
+                
+                                await results.WriteAsync(result, ct);
+                            }
+                            catch (Exception exception)
+                            {
+                                exceptions.Add(new InspectionException($"Failed to process project: {partition.Current.Name}", exception));
+                            }
+                        }
+                    }
+                }, CancellationToken.None));
+
+                await Task.WhenAll(tasks);
+            }
+            finally
+            {
+                // This call is required to ensure the channel is completed and the inspection stops. The caller
+                // is awaiting an async enumerable from the channel, which blocks indefinitely otherwise.
+                results.Complete();
+            }
+
+            if (exceptions.Any())
+            {
+                throw new AggregateException(exceptions).Flatten();
+            }
+        }
+
+        /// <summary>
+        /// Checks if the <paramref name="project"/> is excluded and short-circuits the processing steps.
+        /// </summary>
+        /// <param name="context">The inspection context.</param>
+        /// <param name="metrics">The metrics to compute on each package of each project in the solution.</param>
+        /// <param name="project">The project to inspect.</param>
+        /// <param name="ct">A cancellation token.</param>
+        private async Task<ProjectInspectionResult> FilteredProcessAsync(InspectionContext context, IList<IMetric> metrics, Project project, CancellationToken ct)
+        {
+            if (context.Parameters.ExcludedProjects.Contains(project.Name.ToUpperInvariant()))
+            {
+                _logger.LogVerbose($"Skipping ignored project: {project.Name}");
+            
+                return ProjectInspectionResult.Ignored(project);
+            }
+
+            return await TimedProcessAsync(context, metrics, project, ct);
+        }
+        
+        /// <summary>
+        /// Records the execution time of the processing for the provided <paramref name="project"/>.
+        /// </summary>
+        /// <param name="context">The inspection context.</param>
+        /// <param name="metrics">The metrics to compute on each package of each project in the solution.</param>
+        /// <param name="project">The project to inspect.</param>
+        /// <param name="ct">A cancellation token.</param>
+        private async Task<ProjectInspectionResult> TimedProcessAsync(InspectionContext context, IList<IMetric> metrics, Project project, CancellationToken ct)
+        {
+            var sw = Stopwatch.StartNew();
+
+            var result = await ProcessAsync(context.Parameters, project, metrics, ct);
+        
+            sw.Stop();
+        
+            result.Elapsed = sw.Elapsed;
+
+            return result;
         }
 
         /// <summary>

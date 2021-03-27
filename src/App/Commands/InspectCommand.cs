@@ -37,7 +37,7 @@ namespace App.Commands
         private static async Task<int> Handle(InspectCommandArgs args, IConsole console)
         {
             var terminal = new SystemConsoleTerminal(console);
-            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose));
+            var inspector = new CSharpInspector(new SystemConsoleLoggerAdapter(terminal, args.Verbose), args.MaxConcurrency);
             
             try
             {
