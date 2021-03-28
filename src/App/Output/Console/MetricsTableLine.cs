@@ -1,7 +1,5 @@
 using System;
 
-using NuGet.Versioning;
-
 using App.Inspection.Packages;
 
 namespace App.Output.Console
@@ -12,12 +10,12 @@ namespace App.Output.Console
         public int Depth { get; }
         public string Package { get; }
         public PackageReferenceType PackageType { get; }
-        public SemanticVersion PackageVersion { get; }
+        public string PackageVersion { get; }
         public float? Usage { get; set; }
         public float? Scatter { get; set; }
         public int? TransientCount { get; set; }
 
-        public MetricsTableLine(Guid id, int depth, string name, PackageReferenceType type, SemanticVersion version)
+        public MetricsTableLine(Guid id, int depth, string name, PackageReferenceType type, string version)
         {
             ID = id;
             Depth = depth;

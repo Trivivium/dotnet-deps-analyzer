@@ -26,12 +26,17 @@ namespace App.Inspection.Packages
         
         public bool TryGetFirst(SemanticVersion version, string name, [NotNullWhen(true)] out NuGetPackage? package)
         {
+            return TryGetFirst(version.ToString(), name, out package);
+        }
+        
+        public bool TryGetFirst(string version, string name, [NotNullWhen(true)] out NuGetPackage? package)
+        {
             var key = CreateKey(version, name);
 
             return _items.TryGetValue(key, out package);
         }
         
-        private static string CreateKey(SemanticVersion version, string name)
+        private static string CreateKey(string version, string name)
         {
             return $"{name}:{version}";
         }

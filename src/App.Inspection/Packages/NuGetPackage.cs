@@ -22,7 +22,7 @@ namespace App.Inspection.Packages
         public PackageReferenceType ReferenceType { get; }
         
         /// <inheritdoc cref="Version"/>
-        public SemanticVersion Version { get; }
+        public string Version { get; }
         
         /// <inheritdoc cref="Name"/>
         public string Name { get; }
@@ -33,7 +33,7 @@ namespace App.Inspection.Packages
         /// <inheritdoc cref="Children"/>
         public IReadOnlyCollection<IPackage>? Children { get; private set; }
 
-        public NuGetPackage(PackageReferenceType referenceType, SemanticVersion version, string name, IPackage? parent)
+        public NuGetPackage(PackageReferenceType referenceType, string version, string name, IPackage? parent)
         {
             ID = Guid.NewGuid();
             ReferenceType = referenceType;

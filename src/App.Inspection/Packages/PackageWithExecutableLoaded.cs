@@ -25,7 +25,7 @@ namespace App.Inspection.Packages
         public PackageReferenceType ReferenceType { get; }
         
         /// <inheritdoc cref="IPackage.Version"/>
-        public SemanticVersion Version { get; }
+        public string Version { get; }
         
         /// <inheritdoc cref="IPackage.Name"/>
         public string Name { get; }
@@ -36,7 +36,7 @@ namespace App.Inspection.Packages
         /// <inheritdoc cref="IPackage.Children"/>
         public IReadOnlyCollection<IPackage>? Children { get; }
 
-        internal PackageWithExecutableLoaded(PackageReferenceType type, SemanticVersion version, string name, PortableExecutableWrapper executable)
+        internal PackageWithExecutableLoaded(PackageReferenceType type, string version, string name, PortableExecutableWrapper executable)
         {
             _executable = executable;
             

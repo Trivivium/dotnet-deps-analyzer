@@ -26,7 +26,7 @@ namespace App.Inspection.Packages
         /// either a NuGet package specification, or the file-version of a DLL
         /// with an <see cref="PackageReferenceType.Unknown"/> package <see cref="ReferenceType"/>.
         /// </summary>
-        public SemanticVersion Version { get; }
+        public string Version { get; }
         
         /// <summary>
         /// The name of the package.

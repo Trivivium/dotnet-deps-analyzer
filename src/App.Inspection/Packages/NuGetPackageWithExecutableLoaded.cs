@@ -27,7 +27,7 @@ namespace App.Inspection.Packages
         public PackageReferenceType ReferenceType => _package.ReferenceType;
         
         /// <inheritdoc cref="IPackage.Version"/>
-        public SemanticVersion Version => _package.Version;  
+        public string Version => _package.Version;  
         
         /// <inheritdoc cref="IPackage.Name"/>
         public string Name => _package.Name;

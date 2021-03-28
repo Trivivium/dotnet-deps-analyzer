@@ -3,8 +3,6 @@ using System.Linq;
 using System.Collections.Generic;
 using System.CommandLine.Rendering.Views;
 
-using NuGet.Versioning;
-
 using App.Inspection;
 using App.Inspection.Packages;
 using App.Output.Filters;
@@ -33,7 +31,7 @@ namespace App.Output.Console
             
             view.AddColumn(
                 header: "Version",
-                selector: item => FormatPackageVersion(item.PackageVersion)
+                selector: item => item.PackageVersion
             );
             
             view.AddColumn(
@@ -74,11 +72,6 @@ namespace App.Output.Console
             return depth == 0
                 ? name
                 : string.Concat(new string(' ', depth * 2), name);
-        }
-
-        private static string FormatPackageVersion(SemanticVersion version)
-        {
-            return version.ToString();
         }
 
         private static string FormatPackageType(PackageReferenceType type)

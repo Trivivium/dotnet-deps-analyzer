@@ -47,12 +47,12 @@ namespace App.Inspection.Packages
             
             if (!_cache.TryGetFirst(version, name, out var package))
             {
-                return new PackageWithExecutableLoaded(PackageReferenceType.Unknown, version, executable.Name, executable);
+                return new PackageWithExecutableLoaded(PackageReferenceType.Unknown, version.ToString(), executable.Name, executable);
             }
             
             return new NuGetPackageWithExecutableLoaded(package, executable);
             
-            static SemanticVersion GetVersionFromFilepath(PortableExecutableWrapper executable)
+            static string GetVersionFromFilepath(PortableExecutableWrapper executable)
             {
                 // This is a hack! Sorry future me :(
                 // The path to the DLL of a NuGet package always ends with /lib/<target framework>/<package-id>.dll, so
@@ -61,7 +61,7 @@ namespace App.Inspection.Packages
                 var segments = executable.Filepath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
                 var version = segments[^4];
 
-                return SemanticVersion.Parse(version);
+                return version;
             }
         }
         
@@ -73,7 +73,7 @@ namespace App.Inspection.Packages
             
             foreach (var reference in references)
             {
-                var package = new NuGetPackage(PackageReferenceType.Explicit, reference.Version, reference.Name, parent: null);
+                var package = new NuGetPackage(PackageReferenceType.Explicit, reference.Version.ToString(), reference.Name, parent: null);
                 
                 _cache.Add(package);
                 
@@ -164,7 +164,7 @@ namespace App.Inspection.Packages
 
                 if (!cache.TryGetFirst(version, name, out var package))
                 {
-                    package = new NuGetPackage(PackageReferenceType.Transient, version, name, parent);
+                    package = new NuGetPackage(PackageReferenceType.Transient, version.ToString(), name, parent);
                     
                     package.AddChildren(GetPackageSubgraph(cache, exclusions, framework, package, depth + 1));
                     
@@ -207,7 +207,7 @@ namespace App.Inspection.Packages
         
         private string CreateNuGetSpecFilename(NuGetPackage package)
         {
-            return Path.Combine(_nugetCacheDirectory, package.Name, package.Version.ToString(), $"{package.Name}.nuspec");
+            return Path.Combine(_nugetCacheDirectory, package.Name, package.Version, $"{package.Name}.nuspec");
         }
     }
 }
