@@ -9,7 +9,14 @@ namespace App.Inspection.Metrics
     {
         public IMetricResult? Compute(Project project, Compilation compilation, IPackageWithExecutableLoaded package, Registry registry)
         {
-            return new TransitiveCountMetricResult(package.GetUniqueDependenciesCount());
+            var count = package.GetUniqueDependenciesCount();
+
+            if (count == 0)
+            {
+                return null;
+            }
+            
+            return new TransitiveCountMetricResult(count);
         }
     }
 }
