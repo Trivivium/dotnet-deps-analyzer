@@ -195,7 +195,7 @@ namespace App.Inspection.Packages
                     .GetDependencyGroups()
                     .FirstOrDefault(g => NuGetFrameworkUtility.IsCompatibleWithFallbackCheck(framework, g.TargetFramework) || g.TargetFramework.IsAgnostic);
             }
-            catch (FileNotFoundException)
+            catch (IOException)
             {
                 _logger.LogWarning($"Unable to find NuGet package spec: {file}");
 
