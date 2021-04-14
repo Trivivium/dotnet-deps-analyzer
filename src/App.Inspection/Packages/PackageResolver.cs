@@ -116,9 +116,9 @@ namespace App.Inspection.Packages
                 var name = elem.Attribute("Include")?.Value ?? throw new InspectionException("Unable to resolve package name");
                 var version = elem.Attribute("Version")?.Value ?? throw new InspectionException("Unable to resolve package version");
 
-                if (!SemanticVersion.TryParse(version, out var sVersion))
+                if (!SemanticVersion.TryParse(version.Trim(), out var sVersion))
                 {
-                    throw new InspectionException($"Unable to parse the semantic version of package: {name}");
+                    throw new InspectionException($"Unable to parse the semantic version '{version}' of package: {name}");
                 }
 
                 return new PackageReference(name, sVersion);
