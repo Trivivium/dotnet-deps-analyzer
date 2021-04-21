@@ -71,6 +71,8 @@ namespace App.Inspection.Packages
 
             var (references, framework) = await GetExplicitPackageReferences(project, ct);
             
+            _logger.LogVerbose($"Project target framework: {framework}");
+            
             foreach (var reference in references)
             {
                 var package = new NuGetPackage(PackageReferenceType.Explicit, reference.Version.ToString(), reference.Name, parent: null);
@@ -197,7 +199,7 @@ namespace App.Inspection.Packages
             }
             catch (IOException)
             {
-                _logger.LogWarning($"Unable to find NuGet package spec: {file}");
+                _logger.LogVerbose($"Unable to find NuGet package spec: {file}");
 
                 return false;
             }

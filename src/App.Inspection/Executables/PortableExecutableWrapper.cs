@@ -21,8 +21,8 @@ namespace App.Inspection.Executables
 
         public string Name => Path.GetFileNameWithoutExtension(Filepath);
         
-        public Version Version => _assembly.GetName().Version ?? Version.Parse("0.0.0"); 
-
+        public Version Version => _assembly.GetName().Version ?? Version.Parse("0.0.0");
+        
         /// <summary>
         /// A collection of types publicly available in the corresponding assembly of the
         /// package.

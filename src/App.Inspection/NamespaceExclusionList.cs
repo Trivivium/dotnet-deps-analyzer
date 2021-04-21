@@ -60,9 +60,11 @@ namespace App.Inspection
         /// excluded namespace.
         /// </summary>
         /// <param name="ns">The namespace to check.</param>
-        public bool IsExcluded(string ns)
+        /// <param name="isSdkAssembly">Indicates if the assembly is bundled with the SDK.</param>
+        /// <param name="isReferenceAssembly">Indicates if the assembles only contains reference signatures.</param>
+        public bool IsExcluded(string ns, bool isSdkAssembly = false, bool isReferenceAssembly = false)
         {
-            if ("System".Equals(ns, StringComparison.OrdinalIgnoreCase))
+            if (isSdkAssembly || isReferenceAssembly)
             {
                 return true;
             }
